@@ -1,8 +1,11 @@
 {
   "_readme": "Seed answer key. Keys are question hashes (see lib/hash.js). You normally never edit this by hand: use the extension's Options page to Export after solving, then re-Import on another machine. This file is a placeholder showing the entry shape.",
-  "_example": {
+  "_example_single": {
     "answerId": "52443",
+    "answerIds": ["52443"],
     "answerIndex": 3,
+    "answerIndexes": [3],
+    "multiSelect": false,
     "questionText": "Anda memiliki tabel EMPLOYESS berikut: ...",
     "source": "ai",
     "confidence": 0.86,

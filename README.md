@@ -24,3 +24,13 @@ out the answer to each question; click **Apply** and submit. That's the whole id
 - [Honest limits](#honest-limits)
 
 ---
+
+## Install (2 minutes)
+
+1. Open **`chrome://extensions`** in Chrome (or **`edge://extensions`** in Edge).
+2. Turn on **Developer mode** (top-right toggle).
+3. Click **Load unpacked**.
+4. Select the **`oracle-solver-extension`** folder.
+5. Done. The extension is now installed.
+
+---

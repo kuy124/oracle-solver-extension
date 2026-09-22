@@ -220,10 +220,18 @@ const SHIPPED = [
     assert(response?.ok === true, `solve resolved ok (${JSON.stringify(response).slice(0, 120)})`);
     assert(response?.entry?.answerId === "4", `answerIndex 3 -> choice id '4' (got ${response?.entry?.answerId})`);
     assert(
+      Array.isArray(response?.entry?.answerIds) && response.entry.answerIds.join(",") === "4",
+      `answerIndex 3 -> answerIds ['4'] (got ${JSON.stringify(response?.entry?.answerIds)})`
+    );
+    assert(
       typeof response?.entry?.source === "string" && response.entry.source.startsWith("ai"),
       `source is an AI consensus source (got ${response?.entry?.source})`
     );
     assert(store.answerKey?.testhash?.answerId === "4", "result persisted to the answer key");
+    assert(
+      Array.isArray(store.answerKey?.testhash?.answerIds) && store.answerKey.testhash.answerIds.join(",") === "4",
+      "answerIds persisted alongside the legacy answerId"
+    );
   }
 
   console.log("\n" + (failures === 0 ? "ALL TESTS PASSED" : failures + " TEST(S) FAILED"));

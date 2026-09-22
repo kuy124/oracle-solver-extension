@@ -163,4 +163,24 @@ Open **Options**: right-click the toolbar icon → **Options**, or
 | **Auto-fill** | Answers are auto-**selected**; you still press Submit. | Faster, but you still confirm each question. |
 | **Full auto** | Auto-select **and** auto-submit everything, then finish. | Hands-off (read the warnings above first). |
 
+### Individual settings
+
+| Setting | What it does |
+|---|---|
+| **Free AI fallback** | Off = use only your saved answers (fully offline). |
+| **Auto-solve when a question loads** | Solve automatically, or only when you click Ask AI. |
+| **3-model consensus** | Three models vote; majority wins. More accurate, but slower. |
+| **Show AI reasoning** | Show the AI's short explanation in the panel. |
+| **Preferred AI model** | Which AI model votes first. |
+| **Autopilot** | Auto-select + auto-submit each question. |
+| **Complete on last question** | Also finish the whole assessment. Irreversible. |
+| **Minimum confidence** | Below this, Autopilot pauses instead of applying. |
+| **Delay before submit** | Grace period (in milliseconds) to hit STOP. |
+| **Human mode** | Deliberately miss some hard questions. |
+| **Miss rate on hard questions** | How often eligible hard questions are missed (0–100%). |
+| **Only miss questions harder than** | Difficulty threshold; easier questions are always correct. |
+
+Settings related to Autopilot are **greyed out until Autopilot is on**, and
+Human-mode settings stay **greyed out until Human mode is on**.
+
 ---

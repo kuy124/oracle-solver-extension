@@ -109,5 +109,5 @@ function applyAnswersByIds(answerIds) {
   return allOk;
 }
 
-globalThis.OQSApply = { clearAllChoices, applyAnswerById };
+globalThis.OQSApply = { clearAllChoices, applyAnswerById, applyAnswersByIds };
 })();

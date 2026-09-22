@@ -11,5 +11,17 @@
     "confidence": 0.86,
     "reason": "Uses a table alias consistently and multiplies annual_salary by bonus_pct.",
     "modelId": "2c2ae09e-7bea-4b12-a461-c34a9e084b93"
+  },
+  "_example_multi": {
+    "answerId": "20880",
+    "answerIds": ["20880", "20878"],
+    "answerIndex": 2,
+    "answerIndexes": [2, 0],
+    "multiSelect": true,
+    "questionText": "Manakah dari berikut ini yang benar terkait Opsionalitas Hubungan? (Pilih dua)",
+    "source": "ai-consensus",
+    "confidence": 0.9,
+    "reason": "Both selected choices describe optionality correctly.",
+    "modelId": "bce9d196-5aa7-436a-9e28-760c6d3f8f3a"
   }
 }

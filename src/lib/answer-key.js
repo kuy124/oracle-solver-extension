@@ -247,6 +247,7 @@
     saveKey,
     getEntry,
     putEntry,
+    normalizeEntry,
     deleteEntry,
     clearKey,
     importKey,

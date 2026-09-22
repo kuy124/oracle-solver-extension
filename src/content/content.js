@@ -436,6 +436,7 @@
     if (!isAssessmentPage()) return;
     const question = scrapeQuestion();
     if (!question) return;
+    lastQuestion = question;
 
     const token = ++runToken;
 

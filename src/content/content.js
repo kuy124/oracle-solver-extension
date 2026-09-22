@@ -164,18 +164,6 @@
     return true;
   }
 
-  /** Coerce any answer representation into a clean array of ids. */
-  function normalizeIds(value) {
-    if (Array.isArray(value)) return value.filter(Boolean);
-    return value ? [value] : [];
-  }
-
-  /** Map a set of answer ids back to their current page indexes (best-effort). */
-  function indexesForIds(ids) {
-    const choices = lastQuestion?.choices ?? [];
-    return ids.map((id) => choices.findIndex((c) => c.id === id)).filter((i) => i >= 0);
-  }
-
   /**
    * Apply answer ids directly WITHOUT persisting to the key. Used for deliberate
    * "human mode" misses so a wrong answer is never cached/reused.
@@ -191,6 +179,18 @@
       return false;
     }
     return true;
+  }
+
+  /** Coerce any answer representation into a clean array of ids. */
+  function normalizeIds(value) {
+    if (Array.isArray(value)) return value.filter(Boolean);
+    return value ? [value] : [];
+  }
+
+  /** Map a set of answer ids back to their current page indexes (best-effort). */
+  function indexesForIds(ids) {
+    const choices = lastQuestion?.choices ?? [];
+    return ids.map((id) => choices.findIndex((c) => c.id === id)).filter((i) => i >= 0);
   }
 
   /**
@@ -473,19 +473,12 @@
 
     // Fast path: cached key -> instant suggestion.
     if (!forceAi) {
-      const cached = await getEntry(hash);
+      const cachedEntry = await getEntry(hash);
       if (token !== runToken) return;
-      if (cached) {
-        panel.showSuggestion({
-          answerId: cached.answerId,
-          text: question.choices.find((c) => c.id === cached.answerId)?.text ?? "",
-          source: cached.source ?? "key",
-          confidence: cached.confidence,
-          reason: settings.showReason ? cached.reason : "",
-          candidates: buildCandidates(question, cached.answerId),
-          onApply: (id) => applyAndPersist(id, cached.source ?? "key", cached.reason, cached.confidence),
-        });
-        maybeAutopilot(question, { answerId: cached.answerId, source: cached.source ?? "key", confidence: cached.confidence, reason: cached.reason }, settings);
+      if (cachedEntry) {
+        const cached = normalizeEntry(cachedEntry);
+        showSuggestionFromEntry(question, cached, settings, "key");
+        maybeAutopilot(question, cached, settings);
         return;
       }
     }
@@ -505,6 +498,8 @@
       questionText: question.questionText,
       choices: question.choices.map((c) => ({ id: c.id, text: c.text })),
       forceAi,
+      multiSelect: Boolean(question.multiSelect),
+      requiredCount: question.requiredCount ?? null,
     });
 
     if (token !== runToken) return; // stale result - drop it
@@ -518,24 +513,44 @@
       return;
     }
 
-    const entry = result.entry;
-    // Guard: the suggested answer must still exist on the current page.
-    const validChoice = question.choices.find((c) => c.id === entry.answerId);
-    if (!validChoice) {
+    const entry = normalizeEntry(result.entry);
+    // Guard: EVERY suggested answer must still exist on the current page.
+    const valid = entry.answerIds.filter((id) => question.choices.some((c) => c.id === id));
+    if (valid.length === 0) {
       panel.showError?.("Solved answer no longer matches this question.");
       return;
     }
+    entry.answerIds = valid;
+
+    showSuggestionFromEntry(question, entry, settings, "ai");
+    maybeAutopilot(question, entry, settings);
+  }
+
+  /**
+   * Render the panel suggestion for a normalized entry (single OR multi).
+   * @param {any} question
+   * @param {{ answerIds: string[], source?: string, confidence?: number, reason?: string }} entry
+   * @param {any} settings
+   * @param {string} fallbackSource
+   */
+  function showSuggestionFromEntry(question, entry, settings, fallbackSource) {
+    const ids = normalizeIds(entry.answerIds);
+    const source = entry.source ?? fallbackSource;
+    const text = question.multiSelect
+      ? ids.map((id) => question.choices.find((c) => c.id === id)?.text ?? "").filter(Boolean).join("  +  ")
+      : question.choices.find((c) => c.id === ids[0])?.text ?? "";
 
     panel.showSuggestion({
-      answerId: entry.answerId,
-      text: validChoice.text,
-      source: entry.source ?? "ai",
+      answerId: ids[0],
+      answerIds: ids,
+      multiSelect: Boolean(question.multiSelect),
+      text,
+      source,
       confidence: entry.confidence,
       reason: settings.showReason ? entry.reason : "",
-      candidates: buildCandidates(question, entry.answerId),
-      onApply: (id) => applyAndPersist(id, entry.source ?? "ai", entry.reason, entry.confidence),
+      candidates: buildCandidates(question, ids),
+      onApply: (applyIds) => applyAndPersist(applyIds, source, entry.reason, entry.confidence),
     });
-    maybeAutopilot(question, entry, settings);
   }
 
   /** Debounced re-scan on DOM changes (APEX re-renders regions via AJAX). */

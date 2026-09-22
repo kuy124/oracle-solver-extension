@@ -165,6 +165,120 @@ async function solveConsensus(question, preferredModelId) {
 }
 
 /**
+ * Solve a MULTI-SELECT question with the same 3-model panel, but vote PER CHOICE.
+ *
+ * Each model returns a SET of indexes. A choice is included in the final answer
+ * when a MAJORITY of the returned voters selected it. This is more robust than
+ * voting over whole sets: a model that misses one choice still corroborates the
+ * others. The stated count ("choose two") is NOT enforced: we never add a choice
+ * that the models did not vote for, so a wrong choice is never padded in.
+ *
+ * @param {{ questionText: string, choices: Array<{id:string,text:string}> }} question
+ * @param {number|null} requiredCount
+ * @param {string} preferredModelId
+ * @returns {Promise<{ answerIndexes: number[], confidence: number, reason: string, source: string, verified: boolean } | null>}
+ */
+async function solveConsensusMulti(question, requiredCount, preferredModelId) {
+  const n = question.choices.length;
+  const valid = (p) =>
+    p && Array.isArray(p.answerIndexes) && p.answerIndexes.length > 0 && p.answerIndexes.every((i) => i >= 0 && i < n);
+
+  const panel = [preferredModelId || DEFAULT_MODEL_ID, ...CONSENSUS_MODELS].filter(
+    (id, i, arr) => id && arr.indexOf(id) === i
+  );
+  const voters = panel.slice(0, 3);
+
+  const solverPrompt = buildMultiSolverPrompt(question, requiredCount);
+
+  /** Per-choice vote count and the best confidence/reason seen per set. */
+  const choiceVotes = new Array(n).fill(0); // index -> how many voters picked it
+  let voterCount = 0;
+  const parsedSets = [];
+  let bestConf = 0;
+  let bestReason = "";
+
+  // Sequential with pacing (free endpoint is rate-limited per minute).
+  for (let i = 0; i < voters.length; i += 1) {
+    if (i > 0) await new Promise((r) => setTimeout(r, 700));
+    let parsed = null;
+    try {
+      parsed = parseMultiSolverReply(await ask(solverPrompt, voters[i]));
+    } catch {
+      parsed = null;
+    }
+    if (!valid(parsed)) continue;
+    voterCount += 1;
+    parsedSets.push(parsed);
+    for (const idx of parsed.answerIndexes) choiceVotes[idx] += 1;
+    if ((parsed.confidence || 0) > bestConf) {
+      bestConf = parsed.confidence || 0;
+      bestReason = parsed.reason || "";
+    }
+  }
+
+  if (voterCount === 0) return null;
+
+  // Majority threshold over the voters that actually returned a set.
+  const majority = Math.floor(voterCount / 2) + 1;
+  let indexes = [];
+  for (let i = 0; i < n; i += 1) {
+    if (choiceVotes[i] >= majority) indexes.push(i);
+  }
+
+  // Degenerate case: every voter disagreed (no choice reached a majority). Fall
+  // back to the union so we never submit an empty answer, then let the verifier
+  // tighten it below.
+  let noMajority = false;
+  if (indexes.length === 0) {
+    noMajority = true;
+    const union = new Set();
+    for (const s of parsedSets) for (const idx of s.answerIndexes) union.add(idx);
+    indexes = [...union].sort((a, b) => a - b);
+  }
+
+  // Verifier: confirm/tighten the set. A single verifier cannot flip a clean
+  // majority, but it can fix the no-majority case and catch a missing/extra pick.
+  let verdict = null;
+  try {
+    verdict = parseMultiVerifierReply(
+      await ask(buildMultiVerifierPrompt(question, indexes), DEFAULT_MODEL_ID)
+    );
+  } catch {
+    verdict = null;
+  }
+
+  let finalIndexes = indexes;
+  let confidence = bestConf;
+  let reason = bestReason;
+  let source = "ai-consensus";
+  let verified = true;
+
+  if (verdict && valid(verdict) && (noMajority || verdict.answerIndexes.join(",") !== indexes.join(","))) {
+    // Trust the verifier when there was no majority; when there WAS a majority,
+    // only adopt a changed set if the verifier is confident.
+    if (noMajority || (verdict.confidence || 0) >= 0.8) {
+      finalIndexes = verdict.answerIndexes;
+      confidence = verdict.confidence || bestConf || 0.7;
+      reason = verdict.reason || reason || "verifier-tightened set";
+      source = "ai-consensus-verified";
+    }
+  }
+
+  if (finalIndexes.length === 0) return null;
+
+  const agreement = Math.min(...finalIndexes.map((i) => choiceVotes[i] ?? 0));
+  const baseConf = finalIndexes.every((i) => choiceVotes[i] >= majority) ? Math.max(bestConf, 0.85) : confidence;
+
+  return {
+    answerIndexes: finalIndexes,
+    confidence: Math.min(0.99, baseConf || 0.7),
+    reason: reason || `Selected by the ${voterCount}-model panel.`,
+    source,
+    verified,
+  };
+}
+
+/**
  * @param {SolveRequest} req
  * @returns {Promise<{ ok: boolean, entry?: any, error?: string }>}
  */

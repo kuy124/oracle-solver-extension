@@ -131,6 +131,9 @@ const g = window;
   console.log("\n== Applier (unknown id is a no-op) ==");
   const bogus = g.OQSApply.applyAnswerById("999999");
   assert(bogus === false, "unknown id returns false");
+  assert(g.OQSApply.applyAnswersByIds([]) === false, "applyAnswersByIds([]) returns false");
+
+  await runMultiFixtureSuite();
 
   console.log("\n" + (failures === 0 ? "ALL TESTS PASSED" : failures + " TEST(S) FAILED"));
   process.exit(failures === 0 ? 0 : 1);

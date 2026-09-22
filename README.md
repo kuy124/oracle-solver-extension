@@ -131,3 +131,20 @@ questions wrong on purpose**.
 Turn it on in **Options → Human mode**.
 
 ---
+
+## Where answers come from
+
+Every question is answered in this order:
+
+1. **Your saved answers first** — instant, offline, and free.
+2. **Free AI second** — only for questions you haven't answered before.
+
+With **3-model consensus** on (the default), a new question is answered by **three
+different AI models** and the majority wins. This is much more accurate than any
+single model, and the answer is then saved so it's never asked again.
+
+**Privacy note:** any question that isn't already saved is sent to the free AI
+service (`new.tusksearch.com`). Turn **Free AI fallback** **off** in Options to
+keep everything offline and use only your own saved answers.
+
+---

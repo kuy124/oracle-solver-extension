@@ -12,6 +12,7 @@ importScripts(
   "../lib/hash.js",
   "../lib/prompt.js",
   "../lib/answer-key.js",
+  "../lib/human.js",
   "./tusk-client.js"
 );
 

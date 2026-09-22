@@ -157,6 +157,25 @@ function fetchReturningIndexes(indexes) {
     assert(submit && !submit.classList.contains("apex_disabled"), "submit enabled after multi apply");
   }
 
+  // --------------------------------------------------------- Autopilot submit
+  console.log("\n== Autopilot selects the SET then submits ==");
+  {
+    await tick(50); // let prior cases' timers settle before this page
+    const page = makeMultiPage({
+      settings: { autopilot: true, autopilotDelayMs: 60, autopilotMinConfidence: 0.5 },
+      sendMessage: (msg, cb) =>
+        cb({ ok: true, entry: { answerIds: ["20880", "20878"], answerIndexes: [2, 0], multiSelect: true, source: "ai-consensus", confidence: 0.9, reason: "ok" } }),
+    });
+    page.window.__setItem("P190_QUESTION_SEQUENCE", 4);
+    page.window.__setItem("P190_QUESTION_COUNT", 50);
+    loadContentScripts(page.window);
+    const w = page.window;
+    const submitted = await waitUntil(() => w.__submitPageCalls.length >= 1, 3000);
+    assert(submitted, "autopilot submitted the multi answer set");
+    const selected = [...w.document.querySelectorAll("#collapse-Choices-reg .qzlab-choice")].filter((i) => i.value === "Y");
+    assert(selected.length === 2, `autopilot selected both answers (got ${selected.length})`);
+  }
+
   console.log("\n" + (failures === 0 ? "ALL TESTS PASSED" : failures + " TEST(S) FAILED"));
   process.exit(failures === 0 ? 0 : 1);
 })().catch((e) => { console.error("crash:", e); process.exit(2); });

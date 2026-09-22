@@ -23,6 +23,8 @@
  * @property {string} questionId    P190_QUESTION_ID if present
  * @property {boolean} hasImage     question is image-based (P190_USE_IMAGE = Y)
  * @property {string} imageSrc      first question image src, if any
+ * @property {boolean} multiSelect  true when the question expects >1 answer ("select all that apply")
+ * @property {number|null} requiredCount  how many answers the question asks for, if stated (e.g. "Pilih dua" -> 2)
  * @property {Choice[]} choices
  */
 

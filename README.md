@@ -148,3 +148,19 @@ service (`new.tusksearch.com`). Turn **Free AI fallback** **off** in Options to
 keep everything offline and use only your own saved answers.
 
 ---
+
+## All settings
+
+Open **Options**: right-click the toolbar icon → **Options**, or
+`chrome://extensions` → **Details** → **Extension options**.
+**Every change saves automatically — there is no Save button.**
+
+### Presets (one click sets a whole mode)
+
+| Preset | What it does | Best for |
+|---|---|---|
+| **Suggest only** *(default)* | Panel shows the answer; you Apply and Submit. | Safest — you check everything. |
+| **Auto-fill** | Answers are auto-**selected**; you still press Submit. | Faster, but you still confirm each question. |
+| **Full auto** | Auto-select **and** auto-submit everything, then finish. | Hands-off (read the warnings above first). |
+
+---

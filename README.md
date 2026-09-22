@@ -33,4 +33,7 @@ out the answer to each question; click **Apply** and submit. That's the whole id
 4. Select the **`oracle-solver-extension`** folder.
 5. Done. The extension is now installed.
 
+> Keep the `oracle-solver-extension` folder where it is — Chrome reads it from
+> that location every time.
+
 ---

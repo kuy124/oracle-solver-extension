@@ -230,6 +230,18 @@
       saveSettings({ humanFailRate: v });
     });
 
+    // Min difficulty: slider <-> number
+    $("humanMinDiffRange").addEventListener("input", (e) => {
+      $("humanMinDifficulty").value = e.target.value;
+      saveSettings({ humanMinDifficulty: Number(e.target.value) });
+    });
+    $("humanMinDifficulty").addEventListener("change", (e) => {
+      const v = Math.min(1, Math.max(0, Number(e.target.value) || 0));
+      e.target.value = String(v);
+      $("humanMinDiffRange").value = String(v);
+      saveSettings({ humanMinDifficulty: v });
+    });
+
     // --- Answer key ---
     $("exportBtn").addEventListener("click", async () => {
       const json = await exportKey();

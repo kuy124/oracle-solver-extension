@@ -7,14 +7,31 @@
  * @module background/service-worker
  */
 
+// Use extension-root-absolute paths ("/src/..."). Relative parent paths resolve
+// inconsistently across Chrome versions and fail with "Failed to execute
+// 'importScripts': ... failed to load", the most common way this worker breaks
+// after an update. Absolute paths always resolve from the extension root.
 importScripts(
-  "../lib/version.js",
-  "../lib/hash.js",
-  "../lib/prompt.js",
-  "../lib/answer-key.js",
-  "../lib/human.js",
-  "./tusk-client.js"
+  "/src/lib/version.js",
+  "/src/lib/hash.js",
+  "/src/lib/prompt.js",
+  "/src/lib/answer-key.js",
+  "/src/lib/human.js",
+  "/src/background/tusk-client.js"
 );
+
+// Fail loudly and clearly if a dependency did not wire up (e.g. a stale unpacked
+// build that is missing a file), instead of a confusing downstream error.
+if (!globalThis.OQSTusk || !globalThis.OQSPrompt || !globalThis.OQSKey) {
+  console.error(
+    "[OQS] A background dependency failed to load. Reload the extension " +
+      "(chrome://extensions -> Reload) and, if it persists, remove + restart " +
+      "Chrome + Load unpacked again. Missing: " +
+      [!globalThis.OQSTusk && "OQSTusk", !globalThis.OQSPrompt && "OQSPrompt", !globalThis.OQSKey && "OQSKey"]
+        .filter(Boolean)
+        .join(", ")
+  );
+}
 
 const { ask } = globalThis.OQSTusk;
 const {

@@ -69,3 +69,20 @@ That's it. Repeat for each question.
 You can drag the panel by its header to move it anywhere on the screen.
 
 ---
+
+## Questions with more than one answer
+
+Some Oracle questions say **"Select all that apply"** or **"(Pilih dua)"** and
+want **two or more** answers. The extension handles these with no extra work from
+you:
+
+- The panel shows a count, e.g. **`Suggested answer (2 answers) · 90%`**.
+- It highlights **all** correct choices in the page.
+- **Apply** selects **all of them** at once.
+- **Cycle** is greyed out, because there's nothing to cycle through — the whole
+  set is the answer.
+
+You don't have to tell the extension which type a question is — it reads that
+from the page.
+
+---

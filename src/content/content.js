@@ -9,10 +9,11 @@
 (() => {
   const { scrapeQuestion, isAssessmentPage } = globalThis.OQSScraper ?? {};
   const { hashQuestion } = globalThis.OQSHash ?? {};
-  const { applyAnswerById } = globalThis.OQSApply ?? {};
+  const { applyAnswerById, applyAnswersByIds } = globalThis.OQSApply ?? {};
   const {
     getEntry,
     putEntry,
+    normalizeEntry,
     loadSettings,
     loadIgnored,
     ignoreHash,
@@ -22,12 +23,13 @@
     stopAutopilot,
   } = globalThis.OQSKey ?? {};
   const panel = globalThis.OQSPanel ?? {};
+  const { difficulty, pickHumanFailure, pickHumanFailureMulti } = globalThis.OQSHuman ?? {};
 
   // Build stamp so "am I running stale code?" is a one-glance check in DevTools.
   const VERSION = globalThis.OQS_VERSION ?? "unknown";
   console.info(`[OQS] v${VERSION} content script loaded.`);
 
-  if (!scrapeQuestion || !hashQuestion || !applyAnswerById || !panel.showSuggestion) {
+  if (!scrapeQuestion || !hashQuestion || !applyAnswerById || !applyAnswersByIds || !panel.showSuggestion) {
     console.error(
       `[OQS] v${VERSION} dependencies missing; aborting. ` +
         `This usually means a STALE build is cached — fully reload the extension ` +

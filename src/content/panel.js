@@ -42,15 +42,21 @@ function clearSuggestionHighlight() {
 }
 
 /**
- * Highlight the answer's choice container in the underlying page.
- * @param {string} answerId
+ * Highlight every suggested answer's choice container in the underlying page.
+ * @param {string[]} answerIds
  */
-function highlightSuggestion(answerId) {
+function highlightSuggestions(answerIds) {
   clearSuggestionHighlight();
-  const container = [...document.querySelectorAll("#collapse-Choices-reg .choice-Container")].find(
-    (c) => c.querySelector('.choice-Info input[name="f02"]')?.value === answerId
-  );
-  container?.classList.add("oqs-suggested");
+  const ids = Array.isArray(answerIds) ? answerIds : [answerIds];
+  const set = new Set(ids.filter(Boolean));
+  document.querySelectorAll("#collapse-Choices-reg .choice-Container").forEach((c) => {
+    if (set.has(c.querySelector('.choice-Info input[name="f02"]')?.value)) c.classList.add("oqs-suggested");
+  });
+}
+
+/** Backwards-compatible single-id wrapper. */
+function highlightSuggestion(answerId) {
+  highlightSuggestions([answerId]);
 }
 
 function buildPanel() {

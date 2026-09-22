@@ -90,6 +90,16 @@
     $("autopilotComplete").disabled = !on;
   }
 
+  /** Dim/disable the human-mode sub-options when human mode is off. */
+  function updateHumanSubRows() {
+    const on = $("humanMode").checked;
+    for (const id of ["humanRateRow", "humanMinDiffRow"]) {
+      const row = $(id);
+      row.style.opacity = on ? "1" : "0.45";
+      row.querySelectorAll("input").forEach((el) => { el.disabled = !on; });
+    }
+  }
+
   /** Highlight whichever preset matches the current settings. */
   function updatePresetHighlight(s) {
     const isSafe = !s.autopilot && !s.autoApply;

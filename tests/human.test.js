@@ -56,6 +56,25 @@ const fixed = (v) => () => v;
   const kwQ = { questionText: EASY_Q.questionText + " GROUP BY x HAVING y", choices: EASY_Q.choices };
   assert(difficulty(kwQ) > easyScore, "adding a complexity keyword raises the score");
 
+  console.log("\n== pickHumanFailure: disabled / gated ==");
+  assert(
+    pickHumanFailure(HARD_Q, "a", { humanMode: false, humanFailRate: 1, humanMinDifficulty: 0 }, fixed(0)) === null,
+    "no failure when human mode is OFF"
+  );
+  assert(
+    pickHumanFailure(HARD_Q, "a", { humanMode: true, humanFailRate: 1, humanMinDifficulty: 0.99 }, fixed(0)) === null,
+    "no failure when difficulty < threshold"
+  );
+  assert(
+    pickHumanFailure(HARD_Q, "a", { humanMode: true, humanFailRate: 0.1, humanMinDifficulty: 0 }, fixed(0.99)) === null,
+    "no failure when RNG roll exceeds the miss rate"
+  );
+  const oneChoice = { questionText: HARD_Q.questionText, choices: [{ id: "a" }] };
+  assert(
+    pickHumanFailure(oneChoice, "a", { humanMode: true, humanFailRate: 1, humanMinDifficulty: 0 }, fixed(0)) === null,
+    "no failure when there is only one choice"
+  );
+
   console.log("\n" + (failures === 0 ? "ALL TESTS PASSED" : failures + " TEST(S) FAILED"));
   process.exit(failures === 0 ? 0 : 1);
 })().catch((e) => { console.error("crash:", e); process.exit(2); });

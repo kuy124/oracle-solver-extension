@@ -106,7 +106,7 @@ const SHIPPED = [
   // A shared global (same realm) evaluated twice must be idempotent (IIFE-wrapped,
   // internals scoped, only globalThis.<ns> reassigned).
   {
-    const shared = ["src/lib/prompt.js", "src/lib/hash.js", "src/lib/answer-key.js", "src/background/tusk-client.js"];
+    const shared = ["src/lib/prompt.js", "src/lib/hash.js", "src/lib/answer-key.js", "src/lib/human.js", "src/background/tusk-client.js"];
     const realm = {};
     realm.globalThis = realm;
     realm.TextEncoder = require("util").TextEncoder;

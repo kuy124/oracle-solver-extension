@@ -176,6 +176,23 @@
     return ids.map((id) => choices.findIndex((c) => c.id === id)).filter((i) => i >= 0);
   }
 
+  /**
+   * Apply answer ids directly WITHOUT persisting to the key. Used for deliberate
+   * "human mode" misses so a wrong answer is never cached/reused.
+   */
+  function applyWithoutPersist(answerIds) {
+    const ids = normalizeIds(answerIds);
+    if (ids.length === 0) {
+      panel.showError?.("No answer to apply.");
+      return false;
+    }
+    if (!applyAnswersByIds(ids)) {
+      panel.showError?.("Could not find that choice on the page.");
+      return false;
+    }
+    return true;
+  }
+
   /** Candidate list (suggested answer first, then the rest) for the panel's Cycle. */
   function buildCandidates(question, answerId) {
     const correct = question.choices.find((c) => c.id === answerId);

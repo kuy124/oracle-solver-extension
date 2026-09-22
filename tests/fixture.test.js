@@ -80,6 +80,8 @@ const g = window;
     "a NATURAL JOIN choice was captured"
   );
   assert(q && q.choices.every((c) => c.responseType === 1), "all choices are single-select (type 1)");
+  assert(q && q.multiSelect === false, "single-select question reports multiSelect = false");
+  assert(q && q.requiredCount === null, "single-select question has no requiredCount");
 
   console.log("\n== Hash (stable) ==");
   const h1 = await g.OQSHash.hashQuestion(q);

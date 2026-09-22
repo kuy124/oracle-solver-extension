@@ -93,6 +93,40 @@ function fetchReturningIndexes(indexes) {
     assert(window.OQSScraper.isMultiSelect(q.choices) === true, "isMultiSelect() true for type-2 choices");
   }
 
+  // ------------------------------------------------------------------- Worker
+  console.log("\n== Worker: solveConsensusMulti returns an answer SET ==");
+  {
+    const store = {};
+    const sw = loadServiceWorker({
+      chrome: { storage: stubStorage(store), runtime: {} },
+      fetch: fetchReturningIndexes([0, 2]),
+    });
+    const listener = sw.getMessageListener();
+    const payload = {
+      hash: "multihash",
+      questionText: "Manakah yang benar? (Pilih dua)",
+      choices: [{ id: "10", text: "a" }, { id: "11", text: "b" }, { id: "12", text: "c" }, { id: "13", text: "d" }],
+      multiSelect: true,
+      requiredCount: 2,
+    };
+    const response = await new Promise((resolve) => listener({ type: "OQS_SOLVE", payload }, {}, resolve));
+    assert(response?.ok === true, `solve ok (${JSON.stringify(response).slice(0, 120)})`);
+    assert(
+      Array.isArray(response?.entry?.answerIds) && response.entry.answerIds.join(",") === "10,12",
+      `answerIds = ['10','12'] (got ${JSON.stringify(response?.entry?.answerIds)})`
+    );
+    assert(
+      Array.isArray(response?.entry?.answerIndexes) && response.entry.answerIndexes.join(",") === "0,2",
+      `answerIndexes = [0,2] (got ${JSON.stringify(response?.entry?.answerIndexes)})`
+    );
+    assert(response?.entry?.answerId === "10", "legacy answerId = first id for back-compat");
+    assert(response?.entry?.multiSelect === true, "entry is flagged multiSelect");
+    assert(
+      Array.isArray(store.answerKey?.multihash?.answerIds) && store.answerKey.multihash.answerIds.length === 2,
+      "multi answer set persisted to the key"
+    );
+  }
+
   console.log("\n" + (failures === 0 ? "ALL TESTS PASSED" : failures + " TEST(S) FAILED"));
   process.exit(failures === 0 ? 0 : 1);
 })().catch((e) => { console.error("crash:", e); process.exit(2); });

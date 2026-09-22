@@ -63,4 +63,9 @@ That's it. Repeat for each question.
 | **Never** | Skips this exact question from now on (useful for trick questions). |
 | **STOP** | Stops Autopilot immediately. |
 
+**Keyboard shortcuts:** press **`1`**–**`9`** to click that choice yourself, or
+**`Tab`** to re-ask the AI.
+
+You can drag the panel by its header to move it anywhere on the screen.
+
 ---

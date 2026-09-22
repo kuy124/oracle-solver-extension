@@ -200,4 +200,21 @@ async function runMultiFixtureSuite() {
   const wrapped = w.OQSPrompt.parseMultiSolverReply('{"answerIndex":1,"confidence":0.5,"reason":"x"}');
   assert(wrapped && wrapped.answerIndexes.join(",") === "1", "wraps a lone answerIndex into an array");
   assert(w.OQSPrompt.parseMultiSolverReply("nope") === null, "rejects non-JSON multi reply");
+
+  // Robustness: models emit many shapes for a multi answer - none may be silently dropped.
+  const shapes = [
+    ['{"answerIndexes":"[2,3]"}', "2,3", "string-encoded array"],
+    ['{"answerIndexes":"2, 3"}', "2,3", "comma string"],
+    ['{"answerIndexes":["2","3"]}', "2,3", "string elements"],
+    ['answerIndexes: [0, 2]', "0,2", "bare key without JSON quotes"],
+    ['The answer is {"answerIndexes": [1, 3]} for sure.', "1,3", "prose-wrapped JSON"],
+    ['{"answerIndexes":[2,3,2,3]}', "2,3", "duplicates removed"],
+  ];
+  for (const [raw, expected, label] of shapes) {
+    const got = w.OQSPrompt.parseMultiSolverReply(raw);
+    assert(
+      got && got.answerIndexes.join(",") === expected,
+      `parses ${label} (got ${got && got.answerIndexes.join(",")})`
+    );
+  }
 }

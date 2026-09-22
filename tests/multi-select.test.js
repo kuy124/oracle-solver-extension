@@ -127,6 +127,42 @@ function fetchReturningIndexes(indexes) {
     );
   }
 
+  // ------------------------------------------- Worker: count enforcement
+  console.log("\n== Worker: a partial set is completed to the required count ==");
+  {
+    const store = {};
+    let call = 0;
+    // Solvers + verifier all return a single index ([2]); the fill pass returns
+    // [0], so the two-answer question must still end up with TWO answers.
+    const fetch = async (url) => {
+      if (String(url).includes("/conversations")) return { ok: true, headers: { get: () => null }, json: async () => ({ sessionId: "s", chatId: "c" }) };
+      call += 1;
+      const token = call >= 5 ? '{"answerIndexes":[0],"confidence":0.7,"reason":"fill"}' : '{"answerIndexes":[2],"confidence":0.6,"reason":"only one"}';
+      const frame = JSON.stringify({ role: "assistant", content: JSON.stringify({ content: token }) }) + "\n";
+      let done = false;
+      return {
+        ok: true, status: 200, headers: { get: () => null },
+        body: { getReader: () => ({ read: async () => { if (done) return { done: true }; done = true; return { done: false, value: new TextEncoder().encode(frame) }; }, cancel: async () => {} }) },
+      };
+    };
+    const sw = loadServiceWorker({ chrome: { storage: stubStorage(store), runtime: {} }, fetch });
+    const listener = sw.getMessageListener();
+    const payload = {
+      hash: "partialhash",
+      questionText: "pick two (Pilih dua)",
+      choices: [{ id: "10", text: "a" }, { id: "11", text: "b" }, { id: "12", text: "c" }, { id: "13", text: "d" }],
+      multiSelect: true,
+      requiredCount: 2,
+    };
+    const response = await new Promise((resolve) => listener({ type: "OQS_SOLVE", payload }, {}, resolve));
+    assert(response?.ok === true, "solve ok even when models under-select");
+    assert(
+      Array.isArray(response?.entry?.answerIndexes) && response.entry.answerIndexes.length === 2,
+      `two answers returned for a 'choose two' question (got ${JSON.stringify(response?.entry?.answerIndexes)})`
+    );
+    assert(response?.entry?.answerIds?.length === 2, "two ids returned");
+  }
+
   // ------------------------------------------------------- Orchestrator + UI
   console.log("\n== Orchestrator applies the whole SET (mocked worker) ==");
   {

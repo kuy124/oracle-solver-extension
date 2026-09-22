@@ -127,6 +127,36 @@ function fetchReturningIndexes(indexes) {
     );
   }
 
+  // ------------------------------------------------------- Orchestrator + UI
+  console.log("\n== Orchestrator applies the whole SET (mocked worker) ==");
+  {
+    const page = makeMultiPage({
+      sendMessage: (msg, cb) =>
+        cb({ ok: true, entry: { answerIds: ["20880", "20879"], answerIndexes: [2, 1], multiSelect: true, source: "ai-consensus", confidence: 0.92, reason: "two correct" } }),
+    });
+    loadContentScripts(page.window);
+    await tick(400);
+    const w = page.window;
+
+    const panel = w.document.getElementById("oqs-panel");
+    assert(panel !== null, "panel rendered");
+    const status = panel?.querySelector('[data-role="status"]')?.textContent ?? "";
+    assert(/2 answers/.test(status), `status reports 2 answers (got "${status}")`);
+    const cycleBtn = panel?.querySelector('[data-role="cycle"]');
+    assert(cycleBtn && cycleBtn.disabled === true, "Cycle disabled for a multi-select set");
+
+    // Two containers highlighted in the page.
+    const highlighted = w.document.querySelectorAll(".choice-Container.oqs-suggested");
+    assert(highlighted.length === 2, `two choices highlighted (got ${highlighted.length})`);
+
+    // Apply drives the page's own logic and selects BOTH.
+    panel.querySelector('[data-role="apply"]').click();
+    const selected = [...w.document.querySelectorAll("#collapse-Choices-reg .qzlab-choice")].filter((i) => i.value === "Y");
+    assert(selected.length === 2, `apply selects both answers (got ${selected.length})`);
+    const submit = w.document.querySelector("#quiz-submit");
+    assert(submit && !submit.classList.contains("apex_disabled"), "submit enabled after multi apply");
+  }
+
   console.log("\n" + (failures === 0 ? "ALL TESTS PASSED" : failures + " TEST(S) FAILED"));
   process.exit(failures === 0 ? 0 : 1);
 })().catch((e) => { console.error("crash:", e); process.exit(2); });

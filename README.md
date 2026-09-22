@@ -184,3 +184,15 @@ Settings related to Autopilot are **greyed out until Autopilot is on**, and
 Human-mode settings stay **greyed out until Human mode is on**.
 
 ---
+
+## Backing up / sharing your answers
+
+Every answer you get is saved to your **answer key**.
+
+- **Options → Export** copies your whole key to the clipboard (and shows it in a
+  box). Keep the file as a backup.
+- **Options → Import** loads a key from the text box — handy for moving to another
+  computer or sharing with a friend.
+- **Options → Clear** deletes everything (asks first).
+
+---

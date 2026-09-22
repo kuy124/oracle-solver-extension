@@ -37,3 +37,15 @@ out the answer to each question; click **Apply** and submit. That's the whole id
 > that location every time.
 
 ---
+
+## Use it
+
+1. Open your quiz on **`https://academy.oracle.com`**.
+2. A **Quiz Solver** panel appears in the **top-right** of the page.
+3. The panel shows the suggested answer(s) with a confidence score.
+4. Click **Apply** to select it on the page.
+5. Click the page's own **Submit Answer** — exactly like normal.
+
+That's it. Repeat for each question.
+
+---

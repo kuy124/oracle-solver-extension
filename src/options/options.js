@@ -218,6 +218,18 @@
       );
     });
 
+    // Miss rate: slider <-> number
+    $("humanRateRange").addEventListener("input", (e) => {
+      $("humanFailRate").value = e.target.value;
+      saveSettings({ humanFailRate: Number(e.target.value) });
+    });
+    $("humanFailRate").addEventListener("change", (e) => {
+      const v = Math.min(1, Math.max(0, Number(e.target.value) || 0));
+      e.target.value = String(v);
+      $("humanRateRange").value = String(v);
+      saveSettings({ humanFailRate: v });
+    });
+
     // --- Answer key ---
     $("exportBtn").addEventListener("click", async () => {
       const json = await exportKey();

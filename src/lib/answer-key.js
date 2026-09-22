@@ -26,6 +26,16 @@
     autopilotDelayMs: 1500,
     // Only auto-apply when the AI confidence is at least this (0..1).
     autopilotMinConfidence: 0.5,
+    // ---- Human mode -------------------------------------------------------
+    // Deliberately miss some HARD questions so results look human (not a perfect
+    // 100% bot). Affects ONLY the automatic paths (autopilot / auto-fill); the
+    // manual "Apply" button always applies the correct answer.
+    humanMode: false,
+    // Target fraction of qualifying hard questions to miss (0..1).
+    humanFailRate: 0.25,
+    // Only miss questions whose local difficulty score is at least this (0..1),
+    // so easy questions are never sacrificed.
+    humanMinDifficulty: 0.5,
   };
 
   /** @returns {Promise<Record<string, any>>} */

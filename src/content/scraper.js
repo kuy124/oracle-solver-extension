@@ -33,6 +33,31 @@ function isAssessmentPage() {
   return Boolean(document.querySelector("#collapse-Choices-reg") && document.querySelector("#question-Text"));
 }
 
+/**
+ * Does this question expect more than one answer?
+ *
+ * The page encodes single vs multi per choice: a choice button with
+ * data-response-type="2" is a checkbox (multi), anything else (1/3) is a radio
+ * (single). A multi-select question therefore has every choice marked type 2.
+ * The hidden P190_CHOICES_TITLE ("Choices - Select all that apply.") and the
+ * per-question text ("(Pilih dua)") are used as corroborating hints so a mixed
+ * or unusual page still resolves correctly.
+ *
+ * @param {Choice[]} choices
+ * @returns {boolean}
+ */
+function isMultiSelect(choices) {
+  const hint = `${readChoiceTitle()} ${readQuestionText()}`;
+  const hintMulti = /select\s+all\s+that\s+apply|pilih\s+(?:dua|tiga|empat|beberapa|semua)|choose\s+(?:two|three|four|all)/i.test(
+    hint
+  );
+  if (!choices.length) return hintMulti;
+  const allCheckbox = choices.every((c) => c.responseType === 2);
+  const anyCheckbox = choices.some((c) => c.responseType === 2);
+  // Type 2 everywhere is the definitive signal; a mixed page relies on the hint.
+  return allCheckbox || (hintMulti && anyCheckbox);
+}
+
 /** Read the choices-region heading / P190_CHOICES_TITLE (corroborating hint). */
 function readChoiceTitle() {
   const fromItem = document.querySelector("#P190_CHOICES_TITLE")?.value ?? "";
@@ -147,15 +172,19 @@ function scrapeQuestion() {
   // Require text OR an image; without either there is nothing to solve.
   if ((!questionText && !hasImage) || choices.length === 0) return null;
 
+  const multiSelect = isMultiSelect(choices);
+
   return {
     questionText,
     qNumber: readQuestionNumber(),
     questionId: readQuestionId(),
     hasImage,
     imageSrc,
+    multiSelect,
+    requiredCount: multiSelect ? readRequiredCount() : null,
     choices,
   };
 }
 
-globalThis.OQSScraper = { isAssessmentPage, scrapeQuestion };
+globalThis.OQSScraper = { isAssessmentPage, isMultiSelect, scrapeQuestion };
 })();

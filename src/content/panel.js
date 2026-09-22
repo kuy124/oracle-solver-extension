@@ -190,20 +190,25 @@ function renderCandidate() {
 
 /**
  * Show a solved suggestion.
- * @param {{ answerId: string, text?: string, source?: string, confidence?: number, reason?: string, candidates?: Array<{answerId:string,text:string}>, onApply: (answerId: string) => void }} data
+ * @param {{ answerId?: string, answerIds?: string[], multiSelect?: boolean, text?: string, source?: string, confidence?: number, reason?: string, candidates?: Array<{answerId:string,answerIds?:string[],text:string}>, onApply: (answerIds: string[]) => void }} data
  */
 function showSuggestion(data) {
   if (!panel) buildPanel();
   onApply = data.onApply ?? null;
-  candidates = data.candidates?.length ? data.candidates : [{ answerId: data.answerId, text: data.text ?? "" }];
+  currentMulti = Boolean(data.multiSelect);
+  const ids = data.answerIds?.length ? data.answerIds : data.answerId ? [data.answerId] : [];
+  candidates = data.candidates?.length
+    ? data.candidates
+    : [{ answerId: ids[0], answerIds: ids, text: data.text ?? "" }];
   candidateIndex = 0;
 
-  const found = candidates.findIndex((c) => c.answerId === data.answerId);
+  const found = candidates.findIndex((c) => c.answerId === ids[0]);
   if (found >= 0) candidateIndex = found;
 
   setBadge(data.source ?? "", data.source === "key" || data.source === "ai" ? data.source : "");
   const conf = typeof data.confidence === "number" ? ` \u00b7 ${Math.round(data.confidence * 100)}%` : "";
-  setStatus(`Suggested answer${conf}`, "");
+  const count = currentMulti && ids.length > 1 ? ` (${ids.length} answers)` : "";
+  setStatus(`Suggested answer${count}${conf}`, "");
 
   const reason = panel.querySelector('[data-role="reason"]');
   if (reason) {

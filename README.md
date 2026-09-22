@@ -52,3 +52,15 @@ That's it. Repeat for each question.
 > (the ↻ button) and refresh the quiz tab. See [Troubleshooting](#troubleshooting).
 
 ---
+
+## The panel: every button explained
+
+| Button | What it does |
+|---|---|
+| **Apply** | Selects the suggested answer(s) on the page. You still press Submit yourself. |
+| **Cycle** | Shows the next-best guess, if you disagree with the first. |
+| **Ask AI** | Asks the AI again for a fresh answer to this question. |
+| **Never** | Skips this exact question from now on (useful for trick questions). |
+| **STOP** | Stops Autopilot immediately. |
+
+---

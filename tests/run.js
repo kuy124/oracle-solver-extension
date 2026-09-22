@@ -17,7 +17,9 @@ const suites = [
   "options.test.js",        // options GUI: presets, toggles, sliders, persistence
   "stale-guard.test.js",    // stale solve results are dropped
   "image-question.test.js", // image questions detected + reported
+  "multi-select.test.js",   // "select all that apply": set scrape/solve/apply/submit
   "busy-reset.test.js",     // showBusy clears prior suggestion
+  "human.test.js",          // human mode: difficulty heuristic + deliberate misses
 ];
 
 let failed = 0;

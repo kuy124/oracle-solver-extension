@@ -68,6 +68,25 @@
   }
 
   /**
+   * Normalize ANY stored/imported entry into a single canonical shape with an
+   * `answerIds` array. Reads the new `answerIds`, falling back to a legacy scalar
+   * `answerId`. Used by the orchestrator so old exported keys keep working.
+   * @param {any} entry
+   * @returns {{ answerIds: string[], multiSelect: boolean } & Record<string, any>}
+   */
+  function normalizeEntry(entry) {
+    if (!entry || typeof entry !== "object") return { answerIds: [], multiSelect: false };
+    const fromArray = Array.isArray(entry.answerIds) ? entry.answerIds.filter(Boolean) : [];
+    const list = fromArray.length ? fromArray : entry.answerId ? [entry.answerId] : [];
+    return {
+      ...entry,
+      answerIds: list,
+      // A stored `multiSelect` flag wins; otherwise >1 answer implies multi.
+      multiSelect: entry.multiSelect === true || list.length > 1,
+    };
+  }
+
+  /**
    * @param {string} hash
    * @param {any} entry
    */

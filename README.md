@@ -196,3 +196,28 @@ Every answer you get is saved to your **answer key**.
 - **Options → Clear** deletes everything (asks first).
 
 ---
+
+## Troubleshooting
+
+**The panel doesn't appear / nothing happens.**
+Reload the extension: `chrome://extensions` → click the **↻ Reload** button on the
+extension → then refresh the quiz tab.
+
+**It keeps showing an old answer / an error about `export` or `Status code: 15`.**
+Chrome is running an **old cached copy**. Chrome does not auto-update extensions
+you loaded yourself. To force a clean reload:
+
+1. `chrome://extensions` → **Remove** the extension.
+2. Close **every** `academy.oracle.com` tab.
+3. **Restart Chrome.**
+4. **Load unpacked** again (pick the `oracle-solver-extension` folder).
+5. Reopen the quiz.
+
+**Still stuck?** Go to `chrome://serviceworker-internals`, find the extension's
+worker, click **Unregister**, then reload the extension.
+
+**Autopilot stopped by itself.** That's usually a safety net doing its job — check
+the message in the panel (low confidence, preview page, or the loop cap). You can
+also raise **Minimum confidence**, or press **STOP** and take over.
+
+---

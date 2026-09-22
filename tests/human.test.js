@@ -82,6 +82,17 @@ const fixed = (v) => () => v;
   assert(miss && typeof miss.difficulty === "number", "result reports the difficulty");
   assert(miss && HARD_Q.choices.some((c) => c.id === miss.answerId), "chosen answer is one of the question's choices");
 
+  console.log("\n== pickHumanFailure: prefers the nearest distractor ==");
+  // Correct is [1] (id "b"); nearest distractors are [0] and [2].
+  const q4 = { questionText: HARD_Q.questionText, choices: [{ id: "a" }, { id: "b" }, { id: "c" }, { id: "d" }] };
+  const near = pickHumanFailure(q4, "b", { humanMode: true, humanFailRate: 1, humanMinDifficulty: 0 }, fixed(0));
+  assert(near && (near.answerId === "a" || near.answerId === "c"), `nearest distractor chosen (got ${near && near.answerId})`);
+
+  console.log("\n== Determinism with same RNG ==");
+  const r1 = pickHumanFailure(HARD_Q, "a", { humanMode: true, humanFailRate: 1, humanMinDifficulty: 0 }, fixed(0));
+  const r2 = pickHumanFailure(HARD_Q, "a", { humanMode: true, humanFailRate: 1, humanMinDifficulty: 0 }, fixed(0));
+  assert(r1 && r2 && r1.answerId === r2.answerId, "same RNG -> same result (deterministic)");
+
   console.log("\n" + (failures === 0 ? "ALL TESTS PASSED" : failures + " TEST(S) FAILED"));
   process.exit(failures === 0 ? 0 : 1);
 })().catch((e) => { console.error("crash:", e); process.exit(2); });

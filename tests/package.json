@@ -1,0 +1,19 @@
+{
+  "name": "oracle-solver-extension-tests",
+  "private": true,
+  "description": "Fixture + integration tests for the Oracle Quiz Solver extension (jsdom based, no build step).",
+  "scripts": {
+    "test": "node run.js",
+    "test:fixture": "node fixture.test.js",
+    "test:pageworld": "node page-world.test.js",
+    "test:integration": "node integration.test.js",
+    "test:stale": "node stale-guard.test.js",
+    "test:image": "node image-question.test.js",
+    "test:busy": "node busy-reset.test.js",
+    "test:ai": "node ai.test.js"
+  },
+  "devDependencies": {
+    "jsdom": "^29.1.1",
+    "jquery": "^3.7.1"
+  }
+}

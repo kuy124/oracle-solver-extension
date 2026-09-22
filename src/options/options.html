@@ -1,0 +1,280 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Oracle Quiz Solver — Options</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      --bg: #15171c;
+      --card: #1b1d23;
+      --line: #2f333d;
+      --line-2: #3a3f4b;
+      --ink: #e7e9ee;
+      --muted: #9aa3b2;
+      --hint: #6b7280;
+      --blue: #2563eb;
+      --green: #16a34a;
+      --amber: #d97706;
+      --red: #dc2626;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      padding: 24px 20px 80px;
+      background: var(--bg);
+      color: var(--ink);
+      font: 14px/1.5 "Segoe UI", system-ui, sans-serif;
+    }
+    main { max-width: 700px; margin: 0 auto; }
+    header { margin-bottom: 18px; }
+    h1 { font-size: 20px; margin: 0 0 4px; display: flex; align-items: center; gap: 10px; }
+    .ver { font-size: 11px; color: var(--hint); background: #23262e; padding: 2px 8px; border-radius: 999px; font-weight: 600; }
+    p.sub { color: var(--muted); margin: 0; }
+
+    /* Sticky quick-presets bar */
+    .presets {
+      position: sticky;
+      top: 0;
+      z-index: 10;
+      background: linear-gradient(var(--bg), var(--bg) 80%, transparent);
+      padding: 12px 0;
+      margin-bottom: 4px;
+    }
+    .preset-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+    .preset {
+      text-align: left;
+      border: 1px solid var(--line-2);
+      background: var(--card);
+      border-radius: 10px;
+      padding: 12px;
+      cursor: pointer;
+      color: var(--ink);
+      transition: transform .05s ease, border-color .15s ease, background .15s ease;
+    }
+    .preset:hover { background: #23262e; }
+    .preset:active { transform: scale(.99); }
+    .preset.active { border-color: var(--blue); box-shadow: 0 0 0 1px var(--blue) inset; }
+    .preset .t { font-weight: 700; display: block; margin-bottom: 2px; }
+    .preset .d { font-size: 12px; color: var(--muted); }
+
+    section {
+      background: var(--card);
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      padding: 16px 18px;
+      margin-bottom: 14px;
+    }
+    h2 { font-size: 13px; text-transform: uppercase; letter-spacing: .06em; color: #93c5fd; margin: 0 0 12px; }
+
+    .row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      padding: 11px 0;
+      border-top: 1px solid #23262e;
+    }
+    .row:first-of-type { border-top: 0; }
+    .row .label { flex: 1; min-width: 0; }
+    .row .label .name { font-weight: 500; }
+    .hint { color: var(--hint); font-size: 12px; display: block; margin-top: 2px; }
+
+    /* Toggle switch */
+    .switch { position: relative; width: 46px; height: 26px; flex: 0 0 auto; }
+    .switch input { position: absolute; opacity: 0; width: 100%; height: 100%; margin: 0; cursor: pointer; }
+    .switch .track {
+      position: absolute; inset: 0; border-radius: 999px; background: #3a3f4b;
+      transition: background .15s ease; pointer-events: none;
+    }
+    .switch .thumb {
+      position: absolute; top: 3px; left: 3px; width: 20px; height: 20px; border-radius: 50%;
+      background: #fff; transition: transform .15s ease; pointer-events: none;
+    }
+    .switch input:checked + .track { background: var(--blue); }
+    .switch input:checked ~ .thumb { transform: translateX(20px); }
+    .switch input:focus-visible + .track { outline: 2px solid #60a5fa; outline-offset: 2px; }
+    .switch.danger input:checked + .track { background: var(--red); }
+
+    select, input[type="text"], input[type="number"], textarea {
+      background: #12141a; color: var(--ink); border: 1px solid var(--line-2);
+      border-radius: 7px; padding: 8px 10px; font: inherit;
+    }
+    select { min-width: 240px; }
+    textarea { width: 100%; min-height: 120px; font-family: Consolas, monospace; font-size: 12px; }
+
+    /* Slider + number combo */
+    .slider-wrap { display: flex; align-items: center; gap: 10px; flex: 0 0 auto; }
+    input[type="range"] { width: 150px; accent-color: var(--blue); }
+    .num {
+      width: 62px; text-align: center; background: #12141a; color: var(--ink);
+      border: 1px solid var(--line-2); border-radius: 7px; padding: 6px 4px; font: inherit;
+    }
+
+    button {
+      background: #2a2e37; color: var(--ink); border: 1px solid var(--line-2);
+      border-radius: 8px; padding: 9px 14px; cursor: pointer; font: inherit;
+      transition: background .12s ease;
+    }
+    button:hover { background: #333846; }
+    button.primary { background: var(--blue); border-color: var(--blue); font-weight: 600; }
+    button.primary:hover { background: #1d4ed8; }
+    button.danger { background: #7f1d1d; border-color: #991b1b; }
+    button.danger:hover { background: #991b1b; }
+    .actions { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 12px; }
+
+    .status {
+      color: #86efac; min-height: 20px; margin-top: 10px; font-size: 13px;
+      position: fixed; bottom: 0; left: 0; right: 0; background: #101216;
+      border-top: 1px solid var(--line); padding: 10px 24px; text-align: center;
+      transform: translateY(100%); transition: transform .2s ease;
+    }
+    .status.show { transform: translateY(0); }
+    .status.err { color: #fca5a5; }
+
+    .count { color: var(--muted); margin: 0 0 10px; }
+    details { margin-top: 8px; }
+    summary { cursor: pointer; color: var(--muted); font-size: 13px; }
+    .kv { color: var(--muted); font-size: 12px; margin-top: 6px; }
+  </style>
+</head>
+<body>
+  <main>
+    <header>
+      <h1>Oracle Quiz Solver <span class="ver" id="verTag">v—</span></h1>
+      <p class="sub">Auto-solve Oracle Academy assessments. Local answer key first, free AI fallback second.</p>
+    </header>
+
+    <!-- Quick presets: one click sets the whole mode -->
+    <div class="presets">
+      <div class="preset-grid">
+        <button class="preset" id="presetSafe" type="button">
+          <span class="t">Suggest only</span>
+          <span class="d">Show the answer; you apply &amp; submit.</span>
+        </button>
+        <button class="preset" id="presetAuto" type="button">
+          <span class="t">Auto-fill</span>
+          <span class="d">Auto-select each answer. You submit.</span>
+        </button>
+        <button class="preset" id="presetFull" type="button">
+          <span class="t">Full auto</span>
+          <span class="d">Auto-select + auto-submit all questions.</span>
+        </button>
+      </div>
+    </div>
+
+    <section>
+      <h2>Solver</h2>
+      <div class="row">
+        <div class="label">
+          <span class="name">Free AI fallback</span>
+          <span class="hint">Uses new.tusksearch.com (no API key). Uncached questions are sent there.</span>
+        </div>
+        <label class="switch"><input type="checkbox" id="aiEnabled" /><span class="track"></span><span class="thumb"></span></label>
+      </div>
+      <div class="row">
+        <div class="label">
+          <span class="name">Auto-solve when a question loads</span>
+          <span class="hint">If off, press "Ask AI" on the panel instead.</span>
+        </div>
+        <label class="switch"><input type="checkbox" id="autoSuggest" /><span class="track"></span><span class="thumb"></span></label>
+      </div>
+      <div class="row">
+        <div class="label">
+          <span class="name">3-model consensus (higher accuracy)</span>
+          <span class="hint">Three independent models vote; majority wins. ~2–4 requests/question.</span>
+        </div>
+        <label class="switch"><input type="checkbox" id="doubleCheck" /><span class="track"></span><span class="thumb"></span></label>
+      </div>
+      <div class="row">
+        <div class="label">
+          <span class="name">Show AI reasoning</span>
+        </div>
+        <label class="switch"><input type="checkbox" id="showReason" /><span class="track"></span><span class="thumb"></span></label>
+      </div>
+      <div class="row">
+        <div class="label"><span class="name">Preferred AI model</span></div>
+        <select id="modelId"></select>
+      </div>
+    </section>
+
+    <section>
+      <h2>Autopilot</h2>
+      <div class="row">
+        <div class="label">
+          <span class="name">Autopilot (auto-select + auto-submit)</span>
+          <span class="hint">Automatically answers and submits every question. Use the panel's STOP to abort.</span>
+        </div>
+        <label class="switch danger"><input type="checkbox" id="autopilot" /><span class="track"></span><span class="thumb"></span></label>
+      </div>
+      <div class="row" id="autoCompleteRow">
+        <div class="label">
+          <span class="name">Complete the assessment on the last question</span>
+          <span class="hint">Clicks "Complete Assessment" when finished — irreversible.</span>
+        </div>
+        <label class="switch danger"><input type="checkbox" id="autopilotComplete" /><span class="track"></span><span class="thumb"></span></label>
+      </div>
+      <div class="row" id="minConfRow">
+        <div class="label">
+          <span class="name">Minimum confidence to auto-apply</span>
+          <span class="hint">Pause (skip) questions the AI is less sure about.</span>
+        </div>
+        <div class="slider-wrap">
+          <input type="range" id="minConfRange" min="0" max="1" step="0.05" />
+          <input type="number" class="num" id="autopilotMinConfidence" min="0" max="1" step="0.05" />
+        </div>
+      </div>
+      <div class="row" id="delayRow">
+        <div class="label">
+          <span class="name">Delay before submit</span>
+          <span class="hint">Grace period to hit STOP.</span>
+        </div>
+        <div class="slider-wrap">
+          <input type="range" id="delayRange" min="0" max="8000" step="250" />
+          <input type="number" class="num" id="autopilotDelayMs" min="0" step="250" />
+          <span class="hint">ms</span>
+        </div>
+      </div>
+      <div class="actions">
+        <button id="autopilotResetBtn" type="button">Reset autopilot session</button>
+      </div>
+    </section>
+
+    <section>
+      <h2>Answer key</h2>
+      <p class="count" id="keyCount">0 saved answers.</p>
+      <div class="actions">
+        <button id="exportBtn" type="button">Export key</button>
+        <button id="importBtn" type="button">Import key</button>
+        <button id="unignoreBtn" type="button">Reset "never solve" list</button>
+        <button id="clearBtn" class="danger" type="button">Clear key</button>
+      </div>
+      <details>
+        <summary>Show / paste key JSON</summary>
+        <div style="margin-top:10px;">
+          <textarea id="keyText" placeholder="Exported key JSON appears here. Paste a key here and click Import to load it."></textarea>
+        </div>
+      </details>
+    </section>
+
+    <section>
+      <h2>How it works</h2>
+      <p class="hint">
+        1. On an assessment page the extension reads the question + choices.<br />
+        2. It checks your local answer key (instant).<br />
+        3. If missing and AI is enabled, three models vote on the answer and it is cached.<br />
+        4. The floating panel shows the suggested choice; press <b>Apply</b> to select it.<br />
+        5. With <b>Autopilot</b> on, steps 1–4 repeat automatically and each answer is submitted.
+      </p>
+    </section>
+  </main>
+
+  <div class="status" id="status"></div>
+
+  <script src="../lib/version.js"></script>
+  <script src="../lib/prompt.js"></script>
+  <script src="../lib/answer-key.js"></script>
+  <script src="options.js"></script>
+</body>
+</html>

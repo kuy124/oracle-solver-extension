@@ -1,0 +1,52 @@
+{
+  "manifest_version": 3,
+  "name": "Oracle Quiz Solver",
+  "version": "1.2.0",
+  "description": "Auto-solve Oracle Academy assessment questions using a local answer key plus a free AI fallback (TuskCentral). Suggest + one-click apply.",
+  "permissions": ["storage"],
+  "host_permissions": [
+    "https://academy.oracle.com/*",
+    "https://new.tusksearch.com/*"
+  ],
+  "background": {
+    "service_worker": "src/background/service-worker.js"
+  },
+  "content_scripts": [
+    {
+      "matches": [
+        "https://academy.oracle.com/*"
+      ],
+      "js": [
+        "src/lib/version.js",
+        "src/lib/hash.js",
+        "src/lib/prompt.js",
+        "src/lib/answer-key.js",
+        "src/content/scraper.js",
+        "src/content/applier.js",
+        "src/content/panel.js",
+        "src/content/content.js"
+      ],
+      "css": ["src/content/panel.css"],
+      "run_at": "document_idle"
+    }
+  ],
+  "options_ui": {
+    "page": "src/options/options.html",
+    "open_in_tab": true
+  },
+  "icons": {
+    "16": "icons/icon16.png",
+    "32": "icons/icon32.png",
+    "48": "icons/icon48.png",
+    "128": "icons/icon128.png"
+  },
+  "action": {
+    "default_title": "Oracle Quiz Solver",
+    "default_icon": {
+      "16": "icons/icon16.png",
+      "32": "icons/icon32.png",
+      "48": "icons/icon48.png",
+      "128": "icons/icon128.png"
+    }
+  }
+}

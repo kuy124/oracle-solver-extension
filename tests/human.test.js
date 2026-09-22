@@ -40,6 +40,22 @@ const fixed = (v) => () => v;
 
 // Placeholder body.
 (async () => {
+  const { difficulty, pickHumanFailure } = loadHuman();
+  assert(typeof difficulty === "function", "OQSHuman.difficulty exported");
+  assert(typeof pickHumanFailure === "function", "OQSHuman.pickHumanFailure exported");
+
+  console.log("\n== difficulty: range + monotonicity ==");
+  const easyScore = difficulty(EASY_Q);
+  const hardScore = difficulty(HARD_Q);
+  assert(easyScore >= 0 && easyScore <= 1, `easy score in [0,1] (got ${easyScore})`);
+  assert(hardScore >= 0 && hardScore <= 1, `hard score in [0,1] (got ${hardScore})`);
+  assert(hardScore > easyScore, `hard question scores higher than easy (${hardScore.toFixed(2)} > ${easyScore.toFixed(2)})`);
+  assert(difficulty({ questionText: "", choices: [] }) < 0.2, "empty question scores near 0");
+  const longQ = { questionText: "x".repeat(600), choices: [{ id: "a" }, { id: "b" }] };
+  assert(difficulty(longQ) > difficulty(EASY_Q), "longer question scores higher than the short easy one");
+  const kwQ = { questionText: EASY_Q.questionText + " GROUP BY x HAVING y", choices: EASY_Q.choices };
+  assert(difficulty(kwQ) > easyScore, "adding a complexity keyword raises the score");
+
   console.log("\n" + (failures === 0 ? "ALL TESTS PASSED" : failures + " TEST(S) FAILED"));
   process.exit(failures === 0 ? 0 : 1);
 })().catch((e) => { console.error("crash:", e); process.exit(2); });

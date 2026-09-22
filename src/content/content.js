@@ -262,12 +262,13 @@
   // ---- Autopilot -----------------------------------------------------------
 
   /**
-   * Run one autopilot step for the just-solved question: apply the answer, wait
-   * the configured delay (abortable), then submit / complete / stop.
-   * @param {{ question: any, answerId: string, source: string, confidence: number, reason: string, settings: any }} ctx
+   * Run one autopilot step for the just-solved question: apply the answer(s),
+   * wait the configured delay (abortable), then submit / complete / stop.
+   * @param {{ question: any, answerIds: string[], source: string, confidence: number, reason: string, settings: any }} ctx
    */
   async function autopilotStep(ctx) {
-    const { question, answerId, source, confidence, reason, settings } = ctx;
+    const { question, answerIds, source, confidence, reason, settings } = ctx;
+    const ids = normalizeIds(answerIds);
 
     // One action per question, keyed by question id (or hash fallback).
     const qid = question.questionId || currentHash || "";
@@ -302,12 +303,26 @@
     }
 
     const { seq, isLast } = readProgress();
-    panel.setAutopilotStatus?.(`Autopilot: Q${seq || "?"} applied \u00b7 preparing\u2026`, { active: true });
 
-    // Apply the suggestion.
-    if (!applyAndPersist(answerId, source, reason, confidence)) {
-      panel.setAutopilotStatus?.("Autopilot stopped: could not apply the answer.");
-      return;
+    // Human mode: occasionally miss a hard question (never persisted).
+    const override = humanOverride(question, ids, settings);
+    if (override) {
+      if (!applyWithoutPersist(override.answerIds)) {
+        panel.setAutopilotStatus?.("Autopilot stopped: could not apply the answer.");
+        return;
+      }
+      panel.setAutopilotStatus?.(
+        `Autopilot: Q${seq || "?"} answered as a typical mistake (human mode) \u00b7 preparing\u2026`,
+        { active: true }
+      );
+    } else {
+      panel.setAutopilotStatus?.(`Autopilot: Q${seq || "?"} applied \u00b7 preparing\u2026`, { active: true });
+
+      // Apply the suggestion.
+      if (!applyAndPersist(ids, source, reason, confidence)) {
+        panel.setAutopilotStatus?.("Autopilot stopped: could not apply the answer.");
+        return;
+      }
     }
 
     // Delay before submitting (abortable via STOP).

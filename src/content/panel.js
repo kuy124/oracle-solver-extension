@@ -305,7 +305,7 @@ function wireHandlers(handlers) {
 
   applyBtn?.addEventListener("click", () => {
     const current = candidates[candidateIndex];
-    if (current && onApply) onApply(current.answerId);
+    if (current && onApply) onApply(current.answerIds ?? [current.answerId]);
   });
   cycleBtn?.addEventListener("click", () => {
     if (candidates.length < 2) return;

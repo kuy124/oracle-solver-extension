@@ -221,3 +221,12 @@ the message in the panel (low confidence, preview page, or the loop cap). You ca
 also raise **Minimum confidence**, or press **STOP** and take over.
 
 ---
+
+## Honest limits
+
+- Correctness depends on your saved answers and the AI — **always spot-check**
+  before you rely on it.
+- The free AI service is unofficial and rate-limited; it may change or stop
+  working. Your saved answers always keep working offline.
+- This is a study aid. It helps you answer — it doesn't guarantee a grade, and you
+  are responsible for how you use it.

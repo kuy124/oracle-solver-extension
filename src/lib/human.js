@@ -139,4 +139,43 @@
 
     return { answerId: wrongId, difficulty: diff, score: rate };
   }
+
+  /**
+   * Multi-select variant of pickHumanFailure: decide whether to deliberately miss
+   * this question and, if so, which (reduced) SET of correct answers to submit.
+   *
+   * A believable multi-select miss is dropping ONE correct answer (a partial
+   * selection a real student makes), never adding a wrong choice. When the
+   * question only has one correct answer to drop, there is nothing plausible to
+   * miss, so this returns null.
+   *
+   * @param {{ questionText?: string, choices?: Array<{ id: string, text?: string }> }} question
+   * @param {string[]} correctIds   the solved (correct) answer ids
+   * @param {{ humanMode?: boolean, humanFailRate?: number, humanMinDifficulty?: number }} settings
+   * @param {() => number} [rng]
+   * @returns {{ answerIds: string[], difficulty: number, score: number } | null}
+   */
+  function pickHumanFailureMulti(question, correctIds, settings, rng = Math.random) {
+    if (!settings?.humanMode) return null;
+
+    const ids = Array.isArray(correctIds) ? correctIds.filter(Boolean) : [];
+    // Need at least two correct answers to drop one and stay plausible.
+    if (ids.length < 2) return null;
+
+    const diff = difficulty(question);
+    const minDiff = Number(settings.humanMinDifficulty ?? 0.5);
+    if (diff < minDiff) return null;
+
+    const base = Math.max(0, Math.min(1, Number(settings.humanFailRate ?? 0.25)));
+    const scaled = base * (0.5 + diff);
+    const rate = Math.max(0, Math.min(1, scaled));
+    if (rng() >= rate) return null;
+
+    // Drop exactly one correct answer (the last, for determinism under the RNG).
+    const dropIdx = ids.length - 1;
+    const reduced = ids.filter((_, i) => i !== dropIdx).slice();
+    if (reduced.length === 0) return null;
+
+    return { answerIds: reduced, difficulty: diff, score: rate };
+  }
 })();

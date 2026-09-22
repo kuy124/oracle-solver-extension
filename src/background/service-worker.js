@@ -47,6 +47,8 @@ function enqueue(task) {
  * @property {string} questionText
  * @property {Array<{ id: string, text: string }>} choices
  * @property {boolean} [forceAi]
+ * @property {boolean} [multiSelect]   true when the question expects >1 answer
+ * @property {number|null} [requiredCount] how many answers the question asks for
  */
 
 /**

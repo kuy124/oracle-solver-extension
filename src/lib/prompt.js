@@ -148,6 +148,17 @@ ${renderChoices(question)}
 Apply the METHOD, then respond with the JSON object only.`;
   }
 
+  /** Coerce a raw parsed value into a clean, sorted, unique array of indexes. */
+  function toIndexArray(value) {
+    const arr = Array.isArray(value) ? value : [value];
+    const out = [];
+    for (const v of arr) {
+      const n = Number(v);
+      if (Number.isInteger(n) && n >= 0 && !out.includes(n)) out.push(n);
+    }
+    return out.sort((a, b) => a - b);
+  }
+
   /**
    * A second-opinion prompt: given the question, choices, and a first proposed
    * answer, ask the model to independently verify it (catches the model's first

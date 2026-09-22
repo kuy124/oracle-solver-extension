@@ -120,6 +120,15 @@ function makeOptions() {
   assert(doc.getElementById("humanRateRow").querySelector("input").disabled === true, "miss-rate disabled when human mode off");
   assert(doc.getElementById("humanMinDiffRow").querySelector("input").disabled === true, "min-difficulty disabled when human mode off");
 
+  console.log("\n== Human mode: toggle persists + enables sub-rows ==");
+  const hm = doc.getElementById("humanMode");
+  hm.checked = true;
+  hm.dispatchEvent(new window.Event("change"));
+  await tick(50);
+  assert(store.settings.humanMode === true, "human mode toggle saved");
+  assert(doc.getElementById("humanRateRow").querySelector("input").disabled === false, "miss-rate enabled when human mode on");
+  assert(doc.getElementById("humanMinDiffRow").querySelector("input").disabled === false, "min-difficulty enabled when human mode on");
+
   console.log("\n" + (failures === 0 ? "ALL TESTS PASSED" : failures + " TEST(S) FAILED"));
   process.exit(failures === 0 ? 0 : 1);
 })().catch((e) => { console.error("crash:", e); process.exit(2); });

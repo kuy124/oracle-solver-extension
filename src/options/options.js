@@ -207,6 +207,17 @@
       setStatus("Autopilot session reset (stop flag cleared).");
     });
 
+    // --- Human mode ---
+    $("humanMode").addEventListener("change", async (e) => {
+      await saveSettings({ humanMode: e.target.checked });
+      updateHumanSubRows();
+      setStatus(
+        e.target.checked
+          ? "Human mode ON — autopilot/auto-fill will occasionally miss hard questions."
+          : "Human mode off."
+      );
+    });
+
     // --- Answer key ---
     $("exportBtn").addEventListener("click", async () => {
       const json = await exportKey();

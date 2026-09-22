@@ -111,3 +111,23 @@ Autopilot has safety nets built in:
 | **Last question** | Stops for your review, unless you turned on *Complete on last question*. |
 
 ---
+
+## Human mode
+
+**Off by default.** Autopilot answering everything 100% perfectly looks suspicious.
+Human mode makes a run look like a real student by **occasionally getting hard
+questions wrong on purpose**.
+
+- It judges each question's difficulty locally — no extra AI calls.
+- Only questions harder than **your threshold** can be missed.
+- **Miss rate** controls how often eligible questions are missed.
+- On single-answer questions it picks a believable wrong choice; on multi-answer
+  questions it drops one of the correct answers.
+- **It only affects Autopilot and Auto-fill.** When *you* press **Apply**, you
+  always get the correct answer.
+- A deliberate miss is **never saved**, so the same question can be answered
+  correctly on your next attempt.
+
+Turn it on in **Options → Human mode**.
+
+---

@@ -98,4 +98,16 @@ next question.
 > ⚠️ **Full auto submits every answer for you** and, if enabled, completes the
 > whole assessment. This is **irreversible**. Only use it when you're confident.
 
+Autopilot has safety nets built in:
+
+| Safety net | What it means |
+|---|---|
+| **Minimum confidence** | If the AI isn't sure enough, Autopilot **pauses** instead of guessing. |
+| **Delay before submit** | A few seconds' grace so you can hit **STOP**. |
+| **STOP** | Cancels right away — even across the page reload between questions. |
+| **Loop cap** | Auto-stops after `questions + 2` submits. It can never run away. |
+| **Preview pages** | Never submits on preview-only pages. |
+| **Image questions** | Pauses automatically (the AI can't read images). |
+| **Last question** | Stops for your review, unless you turned on *Complete on last question*. |
+
 ---

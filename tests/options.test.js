@@ -129,6 +129,21 @@ function makeOptions() {
   assert(doc.getElementById("humanRateRow").querySelector("input").disabled === false, "miss-rate enabled when human mode on");
   assert(doc.getElementById("humanMinDiffRow").querySelector("input").disabled === false, "min-difficulty enabled when human mode on");
 
+  console.log("\n== Human mode: sliders sync + persist ==");
+  const rateRange = doc.getElementById("humanRateRange");
+  rateRange.value = "0.4";
+  rateRange.dispatchEvent(new window.Event("input"));
+  await tick(40);
+  assert(doc.getElementById("humanFailRate").value === "0.4", "miss-rate number mirrors slider");
+  assert(store.settings.humanFailRate === 0.4, "miss-rate persisted");
+
+  const minDiff = doc.getElementById("humanMinDifficulty");
+  minDiff.value = "0.65";
+  minDiff.dispatchEvent(new window.Event("change"));
+  await tick(40);
+  assert(store.settings.humanMinDifficulty === 0.65, "min-difficulty persisted");
+  assert(doc.getElementById("humanMinDiffRange").value === "0.65", "min-difficulty slider mirrors number");
+
   console.log("\n" + (failures === 0 ? "ALL TESTS PASSED" : failures + " TEST(S) FAILED"));
   process.exit(failures === 0 ? 0 : 1);
 })().catch((e) => { console.error("crash:", e); process.exit(2); });

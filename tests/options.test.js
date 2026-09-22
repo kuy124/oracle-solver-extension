@@ -116,6 +116,10 @@ function makeOptions() {
   await tick(40);
   assert(store.settings.modelId === picked, "model selection persisted");
 
+  console.log("\n== Human mode: sub-rows disabled until enabled ==");
+  assert(doc.getElementById("humanRateRow").querySelector("input").disabled === true, "miss-rate disabled when human mode off");
+  assert(doc.getElementById("humanMinDiffRow").querySelector("input").disabled === true, "min-difficulty disabled when human mode off");
+
   console.log("\n" + (failures === 0 ? "ALL TESTS PASSED" : failures + " TEST(S) FAILED"));
   process.exit(failures === 0 ? 0 : 1);
 })().catch((e) => { console.error("crash:", e); process.exit(2); });

@@ -278,6 +278,21 @@ OUTPUT: ONLY a JSON object, no markdown fences:
   }
 
   /**
+   * Parse a multi verifier reply.
+   * @param {string} raw
+   * @returns {{ answerIndexes: number[], confidence: number, reason: string } | null}
+   */
+  function parseMultiVerifierReply(raw) {
+    const parsed = parseMultiSolverReply(raw);
+    if (!parsed) return null;
+    return {
+      answerIndexes: parsed.answerIndexes,
+      confidence: parsed.confidence,
+      reason: parsed.reason,
+    };
+  }
+
+  /**
    * Parse the model reply into a strict solver result.
    * Tolerant of stray markdown fences or surrounding text.
    * @param {string} raw

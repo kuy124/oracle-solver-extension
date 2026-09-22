@@ -26,6 +26,7 @@ const {
   parseMultiSolverReply,
   buildMultiVerifierPrompt,
   parseMultiVerifierReply,
+  buildMultiFillPrompt,
   DEFAULT_MODEL_ID,
   CONSENSUS_MODELS,
 } = globalThis.OQSPrompt;
@@ -218,18 +219,20 @@ async function solveConsensusMulti(question, requiredCount, preferredModelId) {
 
   if (voterCount === 0) return null;
 
-  // Majority threshold over the voters that actually returned a set.
+  // Majority threshold over the voters that actually returned a set. A single
+  // surviving voter is NOT a majority of the panel, so we require the count to be
+  // met by real votes and let the verifier help below.
   const majority = Math.floor(voterCount / 2) + 1;
   let indexes = [];
   for (let i = 0; i < n; i += 1) {
     if (choiceVotes[i] >= majority) indexes.push(i);
   }
 
-  // Degenerate case: every voter disagreed (no choice reached a majority). Fall
-  // back to the union so we never submit an empty answer, then let the verifier
-  // tighten it below.
+  // Only ONE voter returned a set: its picks are not corroborated by anyone, so
+  // treat this like a no-majority case and let the verifier confirm (or correct)
+  // the whole set instead of trusting a lone model.
   let noMajority = false;
-  if (indexes.length === 0) {
+  if (voterCount < 2 || indexes.length === 0) {
     noMajority = true;
     const union = new Set();
     for (const s of parsedSets) for (const idx of s.answerIndexes) union.add(idx);
@@ -264,10 +267,62 @@ async function solveConsensusMulti(question, requiredCount, preferredModelId) {
     }
   }
 
+  // COUNT ENFORCEMENT: a "choose two" question must not submit a single answer.
+  // When we know how many answers the question needs and the set is short:
+  //   1. add the best-supported remaining choices the panel already voted for, then
+  //   2. if still short, ask a focused "which other choice also belongs" pass.
+  // We NEVER add a choice that no signal supports.
+  if (requiredCount && requiredCount > 0 && finalIndexes.length < requiredCount) {
+    const have = new Set(finalIndexes);
+    const ranked = [];
+    for (let i = 0; i < n; i += 1) {
+      if (have.has(i)) continue;
+      const voted = choiceVotes[i] > 0;
+      const verifierPicked = Boolean(verdict && valid(verdict) && verdict.answerIndexes.includes(i));
+      if (voted || verifierPicked) ranked.push({ i, score: choiceVotes[i] + (verifierPicked ? 0.5 : 0) });
+    }
+    ranked.sort((a, b) => b.score - a.score || a.i - b.i);
+    for (const { i } of ranked) {
+      if (finalIndexes.length >= requiredCount) break;
+      finalIndexes.push(i);
+    }
+    if (ranked.length > 0 && finalIndexes.length >= requiredCount) {
+      source = source === "ai-consensus" ? "ai-consensus-padded" : source;
+      if (!reason) reason = `Completed to ${requiredCount} answers from the panel votes.`;
+    }
+
+    // Still short: ask the model which OTHER choice(s) also belong.
+    let guard = 0;
+    while (finalIndexes.length < requiredCount && guard < 2) {
+      guard += 1;
+      const need = requiredCount - finalIndexes.length;
+      let fill = null;
+      try {
+        fill = parseMultiSolverReply(await ask(buildMultiFillPrompt(question, finalIndexes, need), DEFAULT_MODEL_ID));
+      } catch {
+        fill = null;
+      }
+      if (!fill) break;
+      let added = false;
+      for (const i of fill.answerIndexes) {
+        if (i >= 0 && i < n && !finalIndexes.includes(i) && finalIndexes.length < requiredCount) {
+          finalIndexes.push(i);
+          added = true;
+        }
+      }
+      if (!added) break;
+    }
+    if (finalIndexes.length >= requiredCount) {
+      source = "ai-consensus-filled";
+      if (!reason) reason = `Filled to ${requiredCount} answers after the panel under-selected.`;
+    }
+    finalIndexes = [...new Set(finalIndexes)].sort((a, b) => a - b);
+  }
+
   if (finalIndexes.length === 0) return null;
 
-  const agreement = Math.min(...finalIndexes.map((i) => choiceVotes[i] ?? 0));
-  const baseConf = finalIndexes.every((i) => choiceVotes[i] >= majority) ? Math.max(bestConf, 0.85) : confidence;
+  const everyMajority = finalIndexes.every((i) => choiceVotes[i] >= majority);
+  const baseConf = everyMajority ? Math.max(bestConf, 0.85) : confidence;
 
   return {
     answerIndexes: finalIndexes,

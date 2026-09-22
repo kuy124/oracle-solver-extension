@@ -182,9 +182,10 @@ function renderCandidate() {
 
   answer.style.display = "block";
   answer.textContent = current.text;
-  if (cycleBtn) cycleBtn.disabled = candidates.length < 2;
+  // Multi-select: the candidate IS the whole set, so cycling is meaningless.
+  if (cycleBtn) cycleBtn.disabled = currentMulti || candidates.length < 2;
   if (applyBtn) applyBtn.disabled = false;
-  highlightSuggestion(current.answerId);
+  highlightSuggestions(current.answerIds ?? [current.answerId]);
 }
 
 /**

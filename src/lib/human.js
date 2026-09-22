@@ -106,4 +106,37 @@
     const offset = rng() < 0.7 ? 0 : Math.min(distractorIdx.length - 1, 1);
     return choices[distractorIdx[offset]]?.id ?? null;
   }
+
+  /**
+   * Decide whether to deliberately miss this question, and with which answer.
+   * @param {{ questionText?: string, choices?: Array<{ id: string, text?: string }> }} question
+   * @param {string} correctAnswerId   the solved (correct) answer id
+   * @param {{ humanMode?: boolean, humanFailRate?: number, humanMinDifficulty?: number }} settings
+   * @param {() => number} [rng]       injectable RNG (defaults to Math.random)
+   * @returns {{ answerId: string, difficulty: number, score: number } | null}
+   *          null => do NOT fail (apply the correct answer as usual).
+   */
+  function pickHumanFailure(question, correctAnswerId, settings, rng = Math.random) {
+    if (!settings?.humanMode) return null;
+
+    const choices = Array.isArray(question?.choices) ? question.choices : [];
+    if (choices.length < 2) return null;
+
+    const diff = difficulty(question);
+    const minDiff = Number(settings.humanMinDifficulty ?? 0.5);
+    if (diff < minDiff) return null;
+
+    // Probability scales UP with difficulty, anchored at the configured rate for
+    // a "threshold" question. A just-over-threshold question misses less often
+    // than a very hard one, which looks more human than a flat rate.
+    const base = Math.max(0, Math.min(1, Number(settings.humanFailRate ?? 0.25)));
+    const scaled = base * (0.5 + diff); // 0.5x .. 1.5x the base rate
+    const rate = Math.max(0, Math.min(1, scaled));
+    if (rng() >= rate) return null;
+
+    const wrongId = pickPlausibleWrong(choices, correctAnswerId, rng);
+    if (!wrongId) return null;
+
+    return { answerId: wrongId, difficulty: diff, score: rate };
+  }
 })();

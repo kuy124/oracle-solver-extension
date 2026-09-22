@@ -249,6 +249,35 @@ OUTPUT: ONLY a JSON object, no markdown fences:
   }
 
   /**
+   * Multi-select verifier: given the question, choices, and a proposed SET of
+   * answers, ask the model to independently confirm or correct the whole set.
+   * @param {{ questionText: string, choices: Array<{ id?: string, text: string }> }} question
+   * @param {number[]} proposedIndexes
+   * @returns {string}
+   */
+  function buildMultiVerifierPrompt(question, proposedIndexes) {
+    const choices = renderChoices(question);
+    const proposed = (proposedIndexes ?? [])
+      .map((i) => `[${i}] ${question?.choices?.[i]?.text ?? ""}`)
+      .join("\n");
+    return `You are a meticulous Oracle SQL grader. This question has MORE THAN ONE correct answer. Another solver proposed a set, but it may be wrong (missing a correct choice or including a wrong one).
+
+QUESTION:
+${question?.questionText ?? ""}
+
+CHOICES:
+${choices}
+
+PROPOSED ANSWER SET:
+${proposed}
+
+Verify EVERY valid choice against the schema, the aliases, the join condition, and the arithmetic the question asks for. Add any correct choice that is missing and remove any incorrect choice that was included.
+
+OUTPUT: ONLY a JSON object, no markdown fences:
+{"answerIndexes": [<0-based integers, the complete correct set, ascending>], "confidence": <0..1>, "reason": "<one sentence: the decisive correctness check>"}`;
+  }
+
+  /**
    * Parse the model reply into a strict solver result.
    * Tolerant of stray markdown fences or surrounding text.
    * @param {string} raw

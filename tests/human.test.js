@@ -93,6 +93,34 @@ const fixed = (v) => () => v;
   const r2 = pickHumanFailure(HARD_Q, "a", { humanMode: true, humanFailRate: 1, humanMinDifficulty: 0 }, fixed(0));
   assert(r1 && r2 && r1.answerId === r2.answerId, "same RNG -> same result (deterministic)");
 
+  console.log("\n== pickHumanFailureMulti: drops exactly one correct answer ==");
+  const { pickHumanFailureMulti } = loadHuman();
+  assert(typeof pickHumanFailureMulti === "function", "OQSHuman.pickHumanFailureMulti exported");
+
+  // Human mode off -> never fires.
+  assert(
+    pickHumanFailureMulti(HARD_Q, ["a", "c"], { humanMode: false, humanFailRate: 1, humanMinDifficulty: 0 }, fixed(0)) === null,
+    "returns null when human mode is off"
+  );
+  // Fewer than two correct answers -> nothing plausible to drop.
+  assert(
+    pickHumanFailureMulti(HARD_Q, ["b"], { humanMode: true, humanFailRate: 1, humanMinDifficulty: 0 }, fixed(0)) === null,
+    "returns null with only one correct answer"
+  );
+  // Below the difficulty threshold -> skipped.
+  assert(
+    pickHumanFailureMulti(EASY_Q, ["a", "b"], { humanMode: true, humanFailRate: 1, humanMinDifficulty: 0.9 }, fixed(0)) === null,
+    "returns null below the difficulty threshold"
+  );
+  // Fires when eligible: drops one, keeps the rest, never adds a wrong id.
+  const missed = pickHumanFailureMulti(HARD_Q, ["a", "b", "c"], { humanMode: true, humanFailRate: 1, humanMinDifficulty: 0 }, fixed(0));
+  assert(missed && Array.isArray(missed.answerIds), "returns an answerIds array when eligible");
+  assert(missed && missed.answerIds.length === 2, `drops exactly one of three correct answers (got ${missed && missed.answerIds.length})`);
+  assert(
+    missed && missed.answerIds.every((id) => ["a", "b", "c"].includes(id)),
+    "kept answers are all from the correct set (no distractor added)"
+  );
+
   console.log("\n" + (failures === 0 ? "ALL TESTS PASSED" : failures + " TEST(S) FAILED"));
   process.exit(failures === 0 ? 0 : 1);
 })().catch((e) => { console.error("crash:", e); process.exit(2); });

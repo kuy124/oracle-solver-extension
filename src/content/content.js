@@ -376,15 +376,17 @@
   /**
    * Decide whether autopilot / auto-apply should act on this question.
    * @param {any} question
-   * @param {{ answerId: string, source?: string, confidence?: number, reason?: string }} entry
+   * @param {{ answerIds?: string[], answerId?: string, source?: string, confidence?: number, reason?: string }} entry
    * @param {any} settings
    */
   function maybeAutopilot(question, entry, settings) {
+    const ids = normalizeIds(entry.answerIds ?? entry.answerId);
+
     if (settings.autopilot) {
       // Full autopilot: apply + submit (errors logged, fire-and-forget).
       autopilotStep({
         question,
-        answerId: entry.answerId,
+        answerIds: ids,
         source: entry.source ?? "ai",
         confidence: entry.confidence,
         reason: entry.reason,
@@ -405,7 +407,20 @@
         panel.setAutopilotStatus?.(`Auto-fill paused: confidence ${Math.round(conf * 100)}% < ${Math.round(minConf * 100)}%.`);
         return;
       }
-      applyAndPersist(entry.answerId, entry.source ?? "ai", entry.reason, entry.confidence);
+
+      // Human mode: occasionally miss a hard question (never persisted).
+      const override = humanOverride(question, ids, settings);
+      if (override) {
+        if (applyWithoutPersist(override.answerIds)) {
+          panel.setAutopilotStatus?.(
+            `Human mode: auto-filled a typical mistake (difficulty ${Math.round(override.difficulty * 100)}%).`,
+            { active: false }
+          );
+        }
+        return;
+      }
+
+      applyAndPersist(ids, entry.source ?? "ai", entry.reason, entry.confidence);
       panel.setAutopilotStatus?.("Auto-filled \u2014 review, then Submit.", { active: false });
       return;
     }

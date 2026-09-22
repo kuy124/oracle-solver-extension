@@ -178,4 +178,11 @@
 
     return { answerIds: reduced, difficulty: diff, score: rate };
   }
+
+  globalThis.OQSHuman = {
+    difficulty,
+    pickHumanFailure,
+    pickHumanFailureMulti,
+    pickPlausibleWrong,
+  };
 })();

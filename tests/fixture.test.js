@@ -138,3 +138,63 @@ const g = window;
   console.error("Test crashed:", err);
   process.exit(2);
 });
+
+/**
+ * Multi-select fixture ("Pilih dua"): scraper detects type-2 choices, the applier
+ * selects a SET without clearing siblings, and the parser reads the array shape.
+ */
+async function runMultiFixtureSuite() {
+  const multiPath = path.join(EXT, "tests", "fixtures", "exampleoracle-multi.html");
+  const mhtml = fs.readFileSync(multiPath, "utf8");
+  const mdom = new JSDOM(mhtml, { runScripts: "outside-only" });
+  const { window: w } = mdom;
+
+  w.chrome = {
+    storage: {
+      local: {
+        get: (k) => Promise.resolve(typeof k === "string" ? { [k]: store[k] } : { ...store }),
+        set: (obj) => {
+          Object.assign(store, obj);
+          return Promise.resolve();
+        },
+      },
+    },
+    runtime: { sendMessage: () => {}, lastError: null },
+  };
+
+  for (const f of ["src/lib/hash.js", "src/lib/prompt.js", "src/content/scraper.js", "src/content/applier.js"]) {
+    const code = fs.readFileSync(path.join(EXT, f), "utf8");
+    const fn = new Function("window", "globalThis", "document", "crypto", "TextEncoder", code);
+    fn.call(w, w, w, w.document, require("crypto").webcrypto, require("util").TextEncoder);
+  }
+  const mg = w.OQSScraper;
+
+  console.log("\n== Multi-select fixture: scraper ==");
+  const mq = mg.scrapeQuestion();
+  assert(mq !== null, "multi fixture scrapes");
+  assert(mq && mq.choices.length === 4, `4 choices (got ${mq && mq.choices.length})`);
+  assert(mq && mq.choices.every((c) => c.responseType === 2), "all choices are multi-select (type 2)");
+  assert(mq && mq.multiSelect === true, "multiSelect detected true");
+  assert(mq && mq.requiredCount === 2, `requiredCount parsed from '(Pilih dua)' (got ${mq && mq.requiredCount})`);
+
+  console.log("\n== Multi-select fixture: applier selects a SET ==");
+  const ids = mq.choices.map((c) => c.id);
+  const applied = w.OQSApply.applyAnswersByIds([ids[0], ids[2]]);
+  assert(applied === true, "applyAnswersByIds returns true");
+  const selected = [...w.document.querySelectorAll("#collapse-Choices-reg .qzlab-choice")].filter((i) => i.value === "Y");
+  assert(selected.length === 2, `exactly two choices selected (got ${selected.length})`);
+  // Ensure idempotent re-apply does not toggle anything off.
+  w.OQSApply.applyAnswersByIds([ids[0], ids[2]]);
+  const selectedAgain = [...w.document.querySelectorAll("#collapse-Choices-reg .qzlab-choice")].filter((i) => i.value === "Y");
+  assert(selectedAgain.length === 2, `re-apply stays at two selected (got ${selectedAgain.length})`);
+
+  console.log("\n== Multi prompt/parser ==");
+  const mprompt = w.OQSPrompt.buildMultiSolverPrompt(mq, mq.requiredCount);
+  assert(/answerIndexes/.test(mprompt), "multi prompt requests answerIndexes");
+  assert(/exactly 2 answers/.test(mprompt), "multi prompt states the required count");
+  const mparsed = w.OQSPrompt.parseMultiSolverReply('```json\n{"answerIndexes":[0,2],"confidence":0.9,"reason":"ok"}\n```');
+  assert(mparsed && mparsed.answerIndexes.join(",") === "0,2", "parses answerIndexes array");
+  const wrapped = w.OQSPrompt.parseMultiSolverReply('{"answerIndex":1,"confidence":0.5,"reason":"x"}');
+  assert(wrapped && wrapped.answerIndexes.join(",") === "1", "wraps a lone answerIndex into an array");
+  assert(w.OQSPrompt.parseMultiSolverReply("nope") === null, "rejects non-JSON multi reply");
+}

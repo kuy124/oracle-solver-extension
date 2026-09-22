@@ -193,6 +193,49 @@
     return true;
   }
 
+  /**
+   * Human mode: for the AUTOMATIC paths only (autopilot / auto-fill), decide
+   * whether to deliberately miss this question and, if so, which answer(s) to
+   * submit. Single-select returns one wrong id; multi-select drops one correct
+   * answer. Returns null when the correct answer should be used as usual.
+   * @param {any} question
+   * @param {string[]} correctIds
+   * @param {any} settings
+   * @returns {{ answerIds: string[], difficulty: number } | null}
+   */
+  function humanOverride(question, correctIds, settings) {
+    if (!settings?.humanMode) return null;
+
+    if (question?.multiSelect && pickHumanFailureMulti) {
+      try {
+        const res = pickHumanFailureMulti(question, correctIds, settings);
+        return res ? { answerIds: res.answerIds, difficulty: res.difficulty } : null;
+      } catch (e) {
+        console.warn("[OQS] human-mode (multi) decision failed (using correct answer):", e);
+        return null;
+      }
+    }
+
+    if (!pickHumanFailure) return null;
+    try {
+      const res = pickHumanFailure(question, correctIds[0], settings);
+      return res ? { answerIds: [res.answerId], difficulty: res.difficulty } : null;
+    } catch (e) {
+      console.warn("[OQS] human-mode decision failed (using correct answer):", e);
+      return null;
+    }
+  }
+
+  /** Human-readable difficulty (0..1) for panel messaging. */
+  function questionDifficulty(question) {
+    if (!difficulty) return 0;
+    try {
+      return difficulty(question);
+    } catch {
+      return 0;
+    }
+  }
+
   /** Candidate list (suggested answer first, then the rest) for the panel's Cycle. */
   function buildCandidates(question, answerId) {
     const correct = question.choices.find((c) => c.id === answerId);

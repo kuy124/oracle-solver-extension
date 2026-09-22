@@ -195,6 +195,7 @@ function loadContentScripts(window) {
     "src/lib/hash.js",
     "src/lib/prompt.js",
     "src/lib/answer-key.js",
+    "src/lib/human.js",
     "src/content/scraper.js",
     "src/content/applier.js",
     "src/content/panel.js",
@@ -226,6 +227,7 @@ function loadLibsOnly(window) {
     "src/lib/hash.js",
     "src/lib/prompt.js",
     "src/lib/answer-key.js",
+    "src/lib/human.js",
     "src/content/scraper.js",
     "src/content/applier.js",
   ];

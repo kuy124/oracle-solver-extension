@@ -70,20 +70,24 @@ IMPLEMENTATION-INTENT RESOLUTION (do this FIRST):
 OUTPUT: ONLY a JSON object, no markdown fences, no prose:
 {"answerIndex": <0-based integer>, "confidence": <0..1>, "reason": "<one or two sentences naming the deciding factor>"}`;
 
+  /** Render the numbered choice list shared by every prompt. */
+  function renderChoices(question) {
+    return (question?.choices ?? []).map((c, i) => `[${i}] ${c.text}`).join("\n");
+  }
+
   /**
    * Build the user content string handed to the model.
    * @param {{ questionText: string, choices: Array<{ id?: string, text: string }> }} question
    * @returns {string}
    */
   function buildSolverPrompt(question) {
-    const choices = (question?.choices ?? []).map((c, i) => `[${i}] ${c.text}`).join("\n");
     return `${SYSTEM_PROMPT}
 
 QUESTION:
 ${question?.questionText ?? ""}
 
 CHOICES:
-${choices}
+${renderChoices(question)}
 
 Apply the METHOD, then respond with the JSON object only.`;
   }

@@ -41,6 +41,28 @@ function readChoiceTitle() {
 }
 
 /**
+ * Parse how many answers the question explicitly asks for, if stated.
+ * Handles the Oracle Academy phrasing "Pilih dua/tiga/...", "Select two/three",
+ * and bare "(choose 2)" style hints. Returns null when no count is stated.
+ * @returns {number|null}
+ */
+function readRequiredCount() {
+  const text = `${readQuestionText()} ${readChoiceTitle()}`;
+  const wordToNum = { dua: 2, tiga: 3, empat: 4, lima: 5, two: 2, three: 3, four: 4, five: 5 };
+  const wordMatch = text.match(/pilih\s+(dua|tiga|empat|lima)|choose\s+(two|three|four|five)|select\s+(two|three|four|five)/i);
+  if (wordMatch) {
+    const word = (wordMatch[1] || wordMatch[2] || wordMatch[3] || "").toLowerCase();
+    if (wordToNum[word]) return wordToNum[word];
+  }
+  const numMatch = text.match(/(?:pilih|choose|select)\s+(\d+)\b/i);
+  if (numMatch) {
+    const n = Number(numMatch[1]);
+    if (n >= 1 && n <= 10) return n;
+  }
+  return null;
+}
+
+/**
  * Visible text of an element. Prefers innerText (respects visibility) but
  * falls back to textContent where innerText is unavailable (e.g. jsdom).
  * @param {HTMLElement | null} el

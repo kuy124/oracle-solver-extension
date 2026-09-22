@@ -48,4 +48,7 @@ out the answer to each question; click **Apply** and submit. That's the whole id
 
 That's it. Repeat for each question.
 
+> **The panel isn't appearing?** Reload the extension in `chrome://extensions`
+> (the ↻ button) and refresh the quiz tab. See [Troubleshooting](#troubleshooting).
+
 ---

@@ -207,7 +207,9 @@ function showSuggestion(data) {
 
   setBadge(data.source ?? "", data.source === "key" || data.source === "ai" ? data.source : "");
   const conf = typeof data.confidence === "number" ? ` \u00b7 ${Math.round(data.confidence * 100)}%` : "";
-  const count = currentMulti && ids.length > 1 ? ` (${ids.length} answers)` : "";
+  // For a multi-select question always show the count, so a partial answer is
+  // visible (e.g. "1 answer" on a two-answer question) instead of looking done.
+  const count = currentMulti ? ` (${ids.length} answer${ids.length === 1 ? "" : "s"})` : "";
   setStatus(`Suggested answer${count}${conf}`, "");
 
   const reason = panel.querySelector('[data-role="reason"]');

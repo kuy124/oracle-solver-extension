@@ -49,3 +49,50 @@ function stubStorage(store) {
     },
   };
 }
+
+/**
+ * A fetch mock that streams a fixed `answerIndexes` set from every model so the
+ * per-choice majority vote resolves deterministically (no network).
+ * @param {number[]} indexes
+ */
+function fetchReturningIndexes(indexes) {
+  const token = JSON.stringify({ answerIndexes: indexes, confidence: 0.9, reason: "multi test" });
+  return async (url) => {
+    if (String(url).includes("/conversations")) {
+      return { ok: true, headers: { get: () => null }, json: async () => ({ sessionId: "s", chatId: "c" }) };
+    }
+    const frame = JSON.stringify({ role: "assistant", content: JSON.stringify({ content: token }) }) + "\n";
+    let done = false;
+    return {
+      ok: true,
+      status: 200,
+      headers: { get: () => null },
+      body: {
+        getReader: () => ({
+          read: async () => {
+            if (done) return { done: true };
+            done = true;
+            return { done: false, value: new TextEncoder().encode(frame) };
+          },
+          cancel: async () => {},
+        }),
+      },
+    };
+  };
+}
+
+(async () => {
+  // ------------------------------------------------------------------ Scraper
+  console.log("== Scraper detects multi-select + required count ==");
+  {
+    const { window } = makeMultiPage();
+    loadLibsOnly(window);
+    const q = window.OQSScraper.scrapeQuestion();
+    assert(q && q.multiSelect === true, "multiSelect = true on the multi fixture");
+    assert(q && q.requiredCount === 2, `requiredCount = 2 (got ${q && q.requiredCount})`);
+    assert(window.OQSScraper.isMultiSelect(q.choices) === true, "isMultiSelect() true for type-2 choices");
+  }
+
+  console.log("\n" + (failures === 0 ? "ALL TESTS PASSED" : failures + " TEST(S) FAILED"));
+  process.exit(failures === 0 ? 0 : 1);
+})().catch((e) => { console.error("crash:", e); process.exit(2); });

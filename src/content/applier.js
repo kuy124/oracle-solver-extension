@@ -89,5 +89,25 @@ function applyAnswerById(answerId) {
   return true;
 }
 
+/**
+ * Select MULTIPLE choices by their server ids (for "select all that apply"
+ * questions). Each id is applied idempotently via applyAnswerById, which already
+ * never toggles a selected choice back off. For single-select questions
+ * (responseType 1/3) the page's own clearAllChoices() keeps only the last pick,
+ * so callers should pass a single id there; for multi-select (type 2) every id
+ * accumulates.
+ * @param {string[]} answerIds
+ * @returns {boolean} true if EVERY id was found + selected
+ */
+function applyAnswersByIds(answerIds) {
+  const ids = Array.isArray(answerIds) ? answerIds.filter(Boolean) : [];
+  if (ids.length === 0) return false;
+  let allOk = true;
+  for (const id of ids) {
+    if (!applyAnswerById(id)) allOk = false;
+  }
+  return allOk;
+}
+
 globalThis.OQSApply = { clearAllChoices, applyAnswerById };
 })();

@@ -127,6 +127,28 @@ OUTPUT: ONLY a JSON object, no markdown fences, no prose:
 {"answerIndexes": [<0-based integers, ascending, no duplicates>], "confidence": <0..1>, "reason": "<one or two sentences naming the deciding factor>"}`;
 
   /**
+   * Build the user content string for a multi-select question.
+   * @param {{ questionText: string, choices: Array<{ id?: string, text: string }> }} question
+   * @param {number|null} [requiredCount]  how many answers the question asks for, if stated
+   * @returns {string}
+   */
+  function buildMultiSolverPrompt(question, requiredCount) {
+    const countLine =
+      requiredCount && requiredCount > 0
+        ? `\nThis question asks for exactly ${requiredCount} answer${requiredCount === 1 ? "" : "s"} (select all that apply).`
+        : `\nThis question asks for ALL correct answers (select all that apply).`;
+    return `${MULTI_SYSTEM_PROMPT}${countLine}
+
+QUESTION:
+${question?.questionText ?? ""}
+
+CHOICES:
+${renderChoices(question)}
+
+Apply the METHOD, then respond with the JSON object only.`;
+  }
+
+  /**
    * A second-opinion prompt: given the question, choices, and a first proposed
    * answer, ask the model to independently verify it (catches the model's first
    * mistake). Returns JSON with an overriding answerIndex when it disagrees.

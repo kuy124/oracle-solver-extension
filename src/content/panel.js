@@ -329,5 +329,4 @@ globalThis.OQSPanel = {
   showBusy,
   setAutopilotStatus,
   wireHandlers,
-};
-})();
+};})();

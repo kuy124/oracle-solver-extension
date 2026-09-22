@@ -66,9 +66,16 @@
     $("autopilotDelayMs").value = String(s.autopilotDelayMs);
     $("delayRange").value = String(Math.min(8000, s.autopilotDelayMs));
 
+    $("humanMode").checked = s.humanMode;
+    $("humanFailRate").value = String(s.humanFailRate);
+    $("humanRateRange").value = String(s.humanFailRate);
+    $("humanMinDifficulty").value = String(s.humanMinDifficulty);
+    $("humanMinDiffRange").value = String(s.humanMinDifficulty);
+
     if ($("modelId").options.length) $("modelId").value = s.modelId;
 
     updateAutopilotSubRows();
+    updateHumanSubRows();
     updatePresetHighlight(s);
   }
 

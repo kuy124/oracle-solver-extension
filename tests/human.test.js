@@ -75,6 +75,13 @@ const fixed = (v) => () => v;
     "no failure when there is only one choice"
   );
 
+  console.log("\n== pickHumanFailure: fires + picks a WRONG choice ==");
+  const miss = pickHumanFailure(HARD_Q, "a", { humanMode: true, humanFailRate: 1, humanMinDifficulty: 0 }, fixed(0));
+  assert(miss !== null, "fails a hard question when eligible + roll passes");
+  assert(miss && miss.answerId !== "a", `chosen answer differs from the correct one (got ${miss && miss.answerId})`);
+  assert(miss && typeof miss.difficulty === "number", "result reports the difficulty");
+  assert(miss && HARD_Q.choices.some((c) => c.id === miss.answerId), "chosen answer is one of the question's choices");
+
   console.log("\n" + (failures === 0 ? "ALL TESTS PASSED" : failures + " TEST(S) FAILED"));
   process.exit(failures === 0 ? 0 : 1);
 })().catch((e) => { console.error("crash:", e); process.exit(2); });

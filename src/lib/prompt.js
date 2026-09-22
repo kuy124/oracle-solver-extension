@@ -160,6 +160,41 @@ Apply the METHOD, then respond with the JSON object only.`;
   }
 
   /**
+   * Parse a multi-select model reply into a strict result.
+   * Accepts {"answerIndexes":[...]} and tolerates a lone {"answerIndex":N}
+   * (wrapped into a single-element array) from a model that misreads the format.
+   * @param {string} raw
+   * @returns {{ answerIndexes: number[], confidence: number, reason: string } | null}
+   */
+  function parseMultiSolverReply(raw) {
+    if (!raw || typeof raw !== "string") return null;
+    let text = raw.trim();
+
+    const fenceMatch = text.match(/```(?:json)?\s*([\s\S]*?)```/i);
+    if (fenceMatch) text = fenceMatch[1].trim();
+
+    const start = text.indexOf("{");
+    const end = text.lastIndexOf("}");
+    if (start !== -1 && end !== -1 && end > start) {
+      text = text.slice(start, end + 1);
+    }
+
+    try {
+      const obj = JSON.parse(text);
+      const rawIndexes = obj.answerIndexes ?? obj.answerIndex;
+      const indexes = toIndexArray(rawIndexes);
+      if (indexes.length === 0) return null;
+      return {
+        answerIndexes: indexes,
+        confidence: Number.isFinite(Number(obj.confidence)) ? Number(obj.confidence) : 0,
+        reason: String(obj.reason ?? "").slice(0, 500),
+      };
+    } catch {
+      return null;
+    }
+  }
+
+  /**
    * A second-opinion prompt: given the question, choices, and a first proposed
    * answer, ask the model to independently verify it (catches the model's first
    * mistake). Returns JSON with an overriding answerIndex when it disagrees.

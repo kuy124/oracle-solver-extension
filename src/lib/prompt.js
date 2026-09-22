@@ -133,36 +133,82 @@ OUTPUT: ONLY a JSON object, no markdown fences, no prose:
    * @returns {string}
    */
   function buildMultiSolverPrompt(question, requiredCount) {
+    const n = (question?.choices ?? []).length;
     const countLine =
       requiredCount && requiredCount > 0
-        ? `\nThis question asks for exactly ${requiredCount} answer${requiredCount === 1 ? "" : "s"} (select all that apply).`
-        : `\nThis question asks for ALL correct answers (select all that apply).`;
+        ? `\nThis question asks for exactly ${requiredCount} answer${requiredCount === 1 ? "" : "s"} (select all that apply). Return ${requiredCount} index${requiredCount === 1 ? "" : "es"} if that many choices are truly correct.`
+        : `\nThis question asks for ALL correct answers (select all that apply). Return EVERY correct index, which is usually 2 or more but could be just 1.`;
     return `${MULTI_SYSTEM_PROMPT}${countLine}
 
 QUESTION:
 ${question?.questionText ?? ""}
 
-CHOICES:
+CHOICES (0 to ${Math.max(0, n - 1)}):
 ${renderChoices(question)}
 
-Apply the METHOD, then respond with the JSON object only.`;
+Return a JSON object with an "answerIndexes" ARRAY holding every correct index (for example {"answerIndexes":[0,2],"confidence":0.9,"reason":"..."}). Do NOT return a single number for a select-all question unless only one choice is correct. Respond with the JSON object only.`;
   }
 
-  /** Coerce a raw parsed value into a clean, sorted, unique array of indexes. */
+  /**
+   * Coerce a raw parsed value into a clean, sorted, unique array of indexes.
+   * Accepts numbers, numeric strings, arrays of either, and a single string that
+   * itself contains a list ("2, 3" or "[2, 3]") - models frequently emit any of
+   * these for a multi-answer set.
+   * @param {unknown} value
+   * @returns {number[]}
+   */
   function toIndexArray(value) {
-    const arr = Array.isArray(value) ? value : [value];
     const out = [];
-    for (const v of arr) {
+    const push = (v) => {
       const n = Number(v);
       if (Number.isInteger(n) && n >= 0 && !out.includes(n)) out.push(n);
-    }
+    };
+    const walk = (v) => {
+      if (v == null) return;
+      if (Array.isArray(v)) {
+        v.forEach(walk);
+      } else if (typeof v === "number") {
+        push(v);
+      } else if (typeof v === "string") {
+        // A string may hold one index ("2"), a list ("2, 3"), or bracketed JSON.
+        const nums = v.match(/\d+/g);
+        if (nums) nums.forEach(push);
+      }
+    };
+    walk(value);
     return out.sort((a, b) => a - b);
   }
 
   /**
+   * Last-resort extractor for a reply whose JSON could not be parsed: scan the
+   * text for an "answerIndexes"/"answerIndex" field and read the integers that
+   * follow it, preferring a bracketed list. Never throws.
+   * @param {string} text
+   * @returns {number[]}
+   */
+  function scrapeIndexesFromText(text) {
+    // Prefer the value attached to answerIndexes/answerIndex.
+    const keyed = text.match(/answer\s*index(?:es)?\s*["']?\s*[:=]\s*(\[[^\]]*\]|\d+(?:\s*,\s*\d+)*)/i);
+    if (keyed) {
+      const nums = keyed[1].match(/\d+/g);
+      if (nums) return [...new Set(nums.map(Number))].sort((a, b) => a - b);
+    }
+    // Otherwise take the first bracketed integer list in the reply.
+    const bracketed = text.match(/\[([^\]]*\d[^\]]*)\]/);
+    if (bracketed) {
+      const nums = bracketed[1].match(/\d+/g);
+      if (nums) return [...new Set(nums.map(Number))].sort((a, b) => a - b);
+    }
+    return [];
+  }
+
+  /**
    * Parse a multi-select model reply into a strict result.
-   * Accepts {"answerIndexes":[...]} and tolerates a lone {"answerIndex":N}
-   * (wrapped into a single-element array) from a model that misreads the format.
+   * Accepts {"answerIndexes":[...]} and tolerates:
+   *   - a lone {"answerIndex":N} (wrapped into a single-element array),
+   *   - answerIndexes as a string ("[0,2]" or "0, 2"),
+   *   - a fenced / prose-wrapped JSON object,
+   *   - a reply with no valid JSON at all (regex fallback on the raw text).
    * @param {string} raw
    * @returns {{ answerIndexes: number[], confidence: number, reason: string } | null}
    */
@@ -175,23 +221,39 @@ Apply the METHOD, then respond with the JSON object only.`;
 
     const start = text.indexOf("{");
     const end = text.lastIndexOf("}");
-    if (start !== -1 && end !== -1 && end > start) {
-      text = text.slice(start, end + 1);
+    const slice = start !== -1 && end !== -1 && end > start ? text.slice(start, end + 1) : text;
+
+    let obj = null;
+    try {
+      obj = JSON.parse(slice);
+    } catch {
+      obj = null;
     }
 
-    try {
-      const obj = JSON.parse(text);
-      const rawIndexes = obj.answerIndexes ?? obj.answerIndex;
-      const indexes = toIndexArray(rawIndexes);
-      if (indexes.length === 0) return null;
-      return {
-        answerIndexes: indexes,
-        confidence: Number.isFinite(Number(obj.confidence)) ? Number(obj.confidence) : 0,
-        reason: String(obj.reason ?? "").slice(0, 500),
-      };
-    } catch {
-      return null;
+    if (obj && typeof obj === "object") {
+      const indexes = toIndexArray(obj.answerIndexes ?? obj.answerIndex ?? obj.answerIdx ?? obj.indexes);
+      if (indexes.length > 0) {
+        return {
+          answerIndexes: indexes,
+          confidence: Number.isFinite(Number(obj.confidence)) ? Number(obj.confidence) : 0,
+          reason: String(obj.reason ?? "").slice(0, 500),
+        };
+      }
     }
+
+    // JSON parse failed or carried no indexes: fall back to scraping the text.
+    const scraped = scrapeIndexesFromText(text);
+    if (scraped.length > 0) {
+      const confMatch = text.match(/confidence\s*["']?\s*[:=]\s*([0-9.]+)/i);
+      const reasonMatch = text.match(/reason\s*["']?\s*[:=]\s*["']([^"']{0,500})/i);
+      return {
+        answerIndexes: scraped,
+        confidence: confMatch ? Number(confMatch[1]) || 0 : 0,
+        reason: reasonMatch ? reasonMatch[1].slice(0, 500) : "",
+      };
+    }
+
+    return null;
   }
 
   /**
@@ -293,6 +355,38 @@ OUTPUT: ONLY a JSON object, no markdown fences:
   }
 
   /**
+   * Focused "fill" prompt: the models agreed on a set that is SHORTER than the
+   * question requires, so ask which additional choice(s) also belong. Used only
+   * when a stated count cannot be met from the panel votes.
+   * @param {{ questionText: string, choices: Array<{ id?: string, text: string }> }} question
+   * @param {number[]} chosenIndexes  the indexes already chosen
+   * @param {number} need             how many extra answers are still required
+   * @returns {string}
+   */
+  function buildMultiFillPrompt(question, chosenIndexes, need) {
+    const chosen = [...new Set(chosenIndexes ?? [])].sort((a, b) => a - b);
+    const chosenList = chosen.map((i) => `[${i}] ${question?.choices?.[i]?.text ?? ""}`).join("\n");
+    const remaining = (question?.choices ?? [])
+      .map((c, i) => ({ i, c }))
+      .filter(({ i }) => !chosen.includes(i))
+      .map(({ i, c }) => `[${i}] ${c.text}`)
+      .join("\n");
+    return `You are an expert Oracle SQL exam solver. This question has MORE THAN ONE correct answer. A first pass already selected this part of the answer:
+
+ALREADY SELECTED:
+${chosenList}
+
+QUESTION:
+${question?.questionText ?? ""}
+
+Which ${need} ADDITIONAL choice${need === 1 ? "" : "s"} from the list below ${need === 1 ? "is" : "are"} also correct? Pick from these only:
+${remaining}
+
+OUTPUT: ONLY a JSON object, no markdown fences:
+{"answerIndexes": [<${need} 0-based integer${need === 1 ? "" : "s"} from the list above>], "confidence": <0..1>, "reason": "<one sentence>"}`;
+  }
+
+  /**
    * Parse the model reply into a strict solver result.
    * Tolerant of stray markdown fences or surrounding text.
    * @param {string} raw
@@ -338,5 +432,6 @@ OUTPUT: ONLY a JSON object, no markdown fences:
     parseMultiSolverReply,
     buildMultiVerifierPrompt,
     parseMultiVerifierReply,
+    buildMultiFillPrompt,
   };
 })();

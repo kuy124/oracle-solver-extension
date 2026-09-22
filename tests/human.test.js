@@ -38,23 +38,31 @@ const HARD_Q = {
 /** RNG that always returns a fixed value. */
 const fixed = (v) => () => v;
 
-// Placeholder body.
 (async () => {
   const { difficulty, pickHumanFailure } = loadHuman();
   assert(typeof difficulty === "function", "OQSHuman.difficulty exported");
   assert(typeof pickHumanFailure === "function", "OQSHuman.pickHumanFailure exported");
 
-  console.log("\n== difficulty: range + monotonicity ==");
-  const easyScore = difficulty(EASY_Q);
-  const hardScore = difficulty(HARD_Q);
-  assert(easyScore >= 0 && easyScore <= 1, `easy score in [0,1] (got ${easyScore})`);
-  assert(hardScore >= 0 && hardScore <= 1, `hard score in [0,1] (got ${hardScore})`);
-  assert(hardScore > easyScore, `hard question scores higher than easy (${hardScore.toFixed(2)} > ${easyScore.toFixed(2)})`);
-  assert(difficulty({ questionText: "", choices: [] }) < 0.2, "empty question scores near 0");
-  const longQ = { questionText: "x".repeat(600), choices: [{ id: "a" }, { id: "b" }] };
-  assert(difficulty(longQ) > difficulty(EASY_Q), "longer question scores higher than the short easy one");
-  const kwQ = { questionText: EASY_Q.questionText + " GROUP BY x HAVING y", choices: EASY_Q.choices };
-  assert(difficulty(kwQ) > easyScore, "adding a complexity keyword raises the score");
+  console.log("\n== Difficulty heuristic ==");
+  const dEasy = difficulty(EASY_Q);
+  const dHard = difficulty(HARD_Q);
+  assert(dEasy >= 0 && dEasy <= 1, `easy score in [0,1] (got ${dEasy})`);
+  assert(dHard >= 0 && dHard <= 1, `hard score in [0,1] (got ${dHard})`);
+  assert(dHard > dEasy, `hard question scores higher than easy (${dHard.toFixed(2)} > ${dEasy.toFixed(2)})`);
+  assert(difficulty({}) === 0 || difficulty({}) < 0.2, "empty question scores near 0");
+
+  // Length alone should raise the score.
+  const longText = "x".repeat(800);
+  const dLong = difficulty({ questionText: longText, choices: [{ id: "a" }, { id: "b" }] });
+  assert(dLong > dEasy, "longer question scores higher than the short easy one");
+
+  // Complexity keyword ("GROUP BY") should raise the score vs the same length.
+  const base = { questionText: "Return the total salary for every department in the table.", choices: [{ id: "a" }, { id: "b" }, { id: "c" }] };
+  const withGroupBy = { ...base, questionText: base.questionText + " Use GROUP BY." };
+  assert(
+    difficulty(withGroupBy) > difficulty(base),
+    "adding a complexity keyword raises the score"
+  );
 
   console.log("\n== pickHumanFailure: disabled / gated ==");
   assert(
@@ -62,25 +70,27 @@ const fixed = (v) => () => v;
     "no failure when human mode is OFF"
   );
   assert(
-    pickHumanFailure(HARD_Q, "a", { humanMode: true, humanFailRate: 1, humanMinDifficulty: 0.99 }, fixed(0)) === null,
+    pickHumanFailure(EASY_Q, "a", { humanMode: true, humanFailRate: 1, humanMinDifficulty: 0.9 }, fixed(0)) === null,
     "no failure when difficulty < threshold"
   );
   assert(
-    pickHumanFailure(HARD_Q, "a", { humanMode: true, humanFailRate: 0.1, humanMinDifficulty: 0 }, fixed(0.99)) === null,
+    pickHumanFailure(HARD_Q, "a", { humanMode: true, humanFailRate: 0.2, humanMinDifficulty: 0 }, fixed(0.999)) === null,
     "no failure when RNG roll exceeds the miss rate"
   );
-  const oneChoice = { questionText: HARD_Q.questionText, choices: [{ id: "a" }] };
   assert(
-    pickHumanFailure(oneChoice, "a", { humanMode: true, humanFailRate: 1, humanMinDifficulty: 0 }, fixed(0)) === null,
+    pickHumanFailure({ questionText: "x", choices: [{ id: "a" }] }, "a", { humanMode: true, humanFailRate: 1, humanMinDifficulty: 0 }, fixed(0)) === null,
     "no failure when there is only one choice"
   );
 
   console.log("\n== pickHumanFailure: fires + picks a WRONG choice ==");
-  const miss = pickHumanFailure(HARD_Q, "a", { humanMode: true, humanFailRate: 1, humanMinDifficulty: 0 }, fixed(0));
-  assert(miss !== null, "fails a hard question when eligible + roll passes");
-  assert(miss && miss.answerId !== "a", `chosen answer differs from the correct one (got ${miss && miss.answerId})`);
-  assert(miss && typeof miss.difficulty === "number", "result reports the difficulty");
-  assert(miss && HARD_Q.choices.some((c) => c.id === miss.answerId), "chosen answer is one of the question's choices");
+  const fire = pickHumanFailure(HARD_Q, "a", { humanMode: true, humanFailRate: 1, humanMinDifficulty: 0 }, fixed(0));
+  assert(fire !== null, "fails a hard question when eligible + roll passes");
+  assert(fire && fire.answerId !== "a", `chosen answer differs from the correct one (got ${fire && fire.answerId})`);
+  assert(fire && typeof fire.difficulty === "number", "result reports the difficulty");
+  assert(
+    fire && HARD_Q.choices.some((c) => c.id === fire.answerId),
+    "chosen answer is one of the question's choices"
+  );
 
   console.log("\n== pickHumanFailure: prefers the nearest distractor ==");
   // Correct is [1] (id "b"); nearest distractors are [0] and [2].

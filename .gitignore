@@ -1,0 +1,10 @@
+# Dependencies (jsdom etc. live under tests/)
+node_modules/
+
+# Editor / OS cruft
+.DS_Store
+Thumbs.db
+*.log
+
+# Local scratch
+*.tmp

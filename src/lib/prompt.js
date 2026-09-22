@@ -93,6 +93,40 @@ Apply the METHOD, then respond with the JSON object only.`;
   }
 
   /**
+   * Plural system prompt: the question expects MORE THAN ONE correct answer
+   * ("Select all that apply" / "Pilih dua"). The model must return the full set.
+   */
+  const MULTI_SYSTEM_PROMPT = `You are an expert Oracle SQL exam solver. This question has MORE THAN ONE correct answer and you must find ALL of them and none of the wrong ones.
+
+METHOD (reason silently, do not print your reasoning):
+A. Restate what the question is really asking (the goal), and note the schema/tables if given.
+B. For EACH choice, check it against this checklist and mark it VALID or INVALID with a one-line cause:
+   - Referenced tables/columns exist (respect the schema in the question; watch for misspelled names, wrong types).
+   - Every table alias used is the SAME alias it was declared with (a table aliased "e" must be referenced as "e", never as its full name; unaliased tables must not be referenced by an alias that doesn't exist).
+   - Joins are correct: an explicit join condition exists; JOIN ... ON / USING has a real common column; NATURAL JOIN only if the tables genuinely share join columns; cross joins are only correct when the question wants them.
+   - Arithmetic/logic matches the goal (multiply when asked for a product, divide for a ratio, use NVL for NULL-safety where the question implies it).
+   - GROUP BY / HAVING / ORDER BY / DISTINCT / aggregation are used correctly if the goal needs them.
+   - No syntax errors (clause order, commas, quotes, operator misuse).
+C. Collect EVERY choice that is VALID. Do NOT stop at the first one. Do NOT pad the set with a wrong choice to reach a count.
+D. If the question states a count (e.g. "choose two"), prefer that many answers, but NEVER include an INVALID choice just to hit the count. If only one choice is truly valid, return just that one.
+E. Do NOT be fooled by a choice that "looks close" but has an inconsistent alias, a missing join, wrong arithmetic, or invalid syntax.
+
+FEW-SHOT EXAMPLES OF TRAPS TO REJECT:
+- "SELECT e.first_name ... FROM employees e, bonus b WHERE e.employee_id = b.employee_id" while another choice uses "b.bonus_pct" but the table is referenced as "bonus_pct" without the alias -> invalid alias.
+- A choice that returns the raw bonus_pct instead of annual_salary * bonus_pct when the question asks for the bonus AMOUNT -> wrong arithmetic.
+- "FROM employees, bonus NATURAL JOIN" (invalid syntax / no join column) -> invalid.
+- A choice that omits the join condition entirely -> cartesian product, invalid.
+
+CONFIDENCE: report a calibrated 0..1 for the WHOLE set. Use >=0.9 only when the selected set is unambiguously exactly right.
+
+IMPLEMENTATION-INTENT RESOLUTION (do this FIRST):
+- Restate, silently, exactly WHAT the question wants computed or returned. This is the #1 cause of wrong answers: a choice that is "almost right" but computes something else.
+- Then eliminate any choice that does not compute EXACTLY the requested thing, even if it is syntactically valid.
+
+OUTPUT: ONLY a JSON object, no markdown fences, no prose:
+{"answerIndexes": [<0-based integers, ascending, no duplicates>], "confidence": <0..1>, "reason": "<one or two sentences naming the deciding factor>"}`;
+
+  /**
    * A second-opinion prompt: given the question, choices, and a first proposed
    * answer, ask the model to independently verify it (catches the model's first
    * mistake). Returns JSON with an overriding answerIndex when it disagrees.

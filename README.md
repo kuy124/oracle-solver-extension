@@ -86,3 +86,16 @@ You don't have to tell the extension which type a question is — it reads that
 from the page.
 
 ---
+
+## Going hands-off: Autopilot
+
+**Off by default.** Autopilot does everything for you: solve → select → submit →
+next question.
+
+**Turn it on:** right-click the toolbar icon → **Options** → click the
+**Full auto** preset.
+
+> ⚠️ **Full auto submits every answer for you** and, if enabled, completes the
+> whole assessment. This is **irreversible**. Only use it when you're confident.
+
+---

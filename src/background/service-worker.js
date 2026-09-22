@@ -22,6 +22,10 @@ const {
   parseSolverReply,
   buildVerifierPrompt,
   parseVerifierReply,
+  buildMultiSolverPrompt,
+  parseMultiSolverReply,
+  buildMultiVerifierPrompt,
+  parseMultiVerifierReply,
   DEFAULT_MODEL_ID,
   CONSENSUS_MODELS,
 } = globalThis.OQSPrompt;

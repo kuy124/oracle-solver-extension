@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Oracle Quiz Solver",
-  "version": "1.2.0",
+  "version": "1.2.1",
   "description": "Auto-solve Oracle Academy assessment questions using a local answer key plus a free AI fallback (TuskCentral). Suggest + one-click apply.",
   "permissions": ["storage"],
   "host_permissions": [

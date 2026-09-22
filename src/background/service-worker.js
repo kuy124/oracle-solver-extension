@@ -336,6 +336,57 @@ async function solve(req) {
   return { ok: true, entry };
 }
 
+/**
+ * Solve a multi-select question and persist the resulting set.
+ * @param {{ hash: string, questionText: string, choices: any[], question: any, modelId: string, settings: any, requiredCount: number|null }} ctx
+ * @returns {Promise<{ ok: boolean, entry?: any, error?: string }>}
+ */
+async function solveMulti(ctx) {
+  const { hash, questionText, choices, question, modelId, settings, requiredCount } = ctx;
+
+  let result;
+  if (settings.doubleCheck !== false) {
+    result = await solveConsensusMulti(question, requiredCount, modelId);
+  } else {
+    try {
+      const parsed = parseMultiSolverReply(await ask(buildMultiSolverPrompt(question, requiredCount), modelId));
+      result = parsed
+        ? { answerIndexes: parsed.answerIndexes, confidence: parsed.confidence, reason: parsed.reason, source: "ai", verified: false }
+        : null;
+    } catch (err) {
+      return { ok: false, error: err instanceof Error ? err.message : String(err) };
+    }
+  }
+
+  if (!result || !Array.isArray(result.answerIndexes) || result.answerIndexes.length === 0) {
+    return { ok: false, error: "The AI reply could not be parsed into an answer set." };
+  }
+
+  const answerIndexes = result.answerIndexes.filter((i) => i >= 0 && i < choices.length);
+  if (answerIndexes.length === 0) {
+    return { ok: false, error: "The AI answer set did not match any choice." };
+  }
+
+  const answerIds = answerIndexes.map((i) => choices[i]?.id).filter(Boolean);
+  const entry = {
+    // Legacy scalar fields (first element) keep older readers working.
+    answerId: answerIds[0] ?? null,
+    answerIndex: answerIndexes[0],
+    // Canonical multi-answer fields.
+    answerIds,
+    answerIndexes,
+    multiSelect: true,
+    questionText: questionText.slice(0, 4000),
+    source: result.source,
+    confidence: result.confidence,
+    reason: result.reason,
+    modelId,
+    verified: result.verified,
+  };
+  await putEntry(hash, entry);
+  return { ok: true, entry };
+}
+
 chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
   if (message?.type !== "OQS_SOLVE") return undefined;
 

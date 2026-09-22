@@ -283,7 +283,7 @@ async function solveConsensusMulti(question, requiredCount, preferredModelId) {
  * @returns {Promise<{ ok: boolean, entry?: any, error?: string }>}
  */
 async function solve(req) {
-  const { hash, questionText, choices, forceAi = false } = req;
+  const { hash, questionText, choices, forceAi = false, multiSelect = false, requiredCount = null } = req;
 
   if (!forceAi) {
     const cached = await getEntry(hash);
@@ -297,6 +297,10 @@ async function solve(req) {
 
   const modelId = settings.modelId || DEFAULT_MODEL_ID;
   const question = { questionText, choices };
+
+  if (multiSelect) {
+    return solveMulti({ hash, questionText, choices, question, modelId, settings, requiredCount });
+  }
 
   let result;
   if (settings.doubleCheck !== false) {
@@ -318,7 +322,9 @@ async function solve(req) {
   const chosen = choices[result.answerIndex];
   const entry = {
     answerId: chosen?.id ?? null,
+    answerIds: chosen?.id ? [chosen.id] : [],
     answerIndex: result.answerIndex,
+    answerIndexes: [result.answerIndex],
     questionText: questionText.slice(0, 4000),
     source: result.source,
     confidence: result.confidence,

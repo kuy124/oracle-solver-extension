@@ -80,4 +80,30 @@
     const score = 0.3 * lenScore + 0.15 * choiceScore + 0.55 * kwScore;
     return Math.max(0, Math.min(1, score));
   }
+
+  /**
+   * Choose a plausible-but-wrong choice to submit instead of the correct one.
+   * Prefers the "nearest" distractor (the choice adjacent to the correct one) so
+   * the miss looks like a believable student error rather than a random pick.
+   * @param {Array<{ id: string }>} choices
+   * @param {string} correctAnswerId
+   * @param {() => number} rng
+   * @returns {string | null} an answer id different from the correct one, or null
+   */
+  function pickPlausibleWrong(choices, correctAnswerId, rng) {
+    const idx = choices.findIndex((c) => c.id === correctAnswerId);
+    if (idx < 0 || choices.length < 2) return null;
+
+    // Order distractors by proximity to the correct choice (nearest first).
+    const distractorIdx = [];
+    for (let i = 0; i < choices.length; i += 1) {
+      if (i !== idx) distractorIdx.push(i);
+    }
+    distractorIdx.sort((a, b) => Math.abs(a - idx) - Math.abs(b - idx));
+
+    // Usually the nearest distractor; occasionally a more distant one, to avoid
+    // an obvious pattern.
+    const offset = rng() < 0.7 ? 0 : Math.min(distractorIdx.length - 1, 1);
+    return choices[distractorIdx[offset]]?.id ?? null;
+  }
 })();

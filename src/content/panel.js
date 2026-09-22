@@ -10,11 +10,13 @@ const OQS_PANEL_ID = "oqs-panel";
 
 /** @type {HTMLElement | null} */
 let panel = null;
-/** @type {null | ((answerId: string) => void)} */
+/** @type {null | ((answerIds: string[]) => void)} */
 let onApply = null;
-/** @type {Array<{ answerId: string, text: string }>} */
+/** @type {Array<{ answerId: string, answerIds?: string[], text: string }>} */
 let candidates = [];
 let candidateIndex = 0;
+/** True when the current question expects more than one answer. */
+let currentMulti = false;
 
 function el(tag, className, text) {
   const node = document.createElement(tag);

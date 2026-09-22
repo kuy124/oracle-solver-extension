@@ -47,6 +47,8 @@
   let autopilotHandledQuestionId = null;
   /** Timer for the pre-submit delay, so STOP can cancel it. */
   let autopilotTimer = null;
+  /** The most recently scraped question (for id <-> index mapping). */
+  let lastQuestion = null;
 
   // ---- Small DOM helpers for the APEX autopilot ----------------------------
 

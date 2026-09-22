@@ -176,6 +176,22 @@ function fetchReturningIndexes(indexes) {
     assert(selected.length === 2, `autopilot selected both answers (got ${selected.length})`);
   }
 
+  // ---------------------------------------------- Legacy scalar key still works
+  console.log("\n== Legacy scalar cached entry is normalized to an array ==");
+  {
+    const page = makeMultiPage({
+      store: {},
+      sendMessage: (msg, cb) => cb({ ok: false, error: "should use cache" }),
+    });
+    loadLibsOnly(page.window);
+    // Seed a legacy-style scalar entry and confirm normalizeEntry widens it.
+    const norm = page.window.OQSKey.normalizeEntry({ answerId: "42", source: "key" });
+    assert(norm.answerIds.join(",") === "42", "scalar answerId -> answerIds ['42']");
+    assert(norm.multiSelect === false, "single legacy entry is not multi");
+    const multi = page.window.OQSKey.normalizeEntry({ answerIds: ["1", "2"] });
+    assert(multi.multiSelect === true, "array of 2 implies multiSelect");
+  }
+
   console.log("\n" + (failures === 0 ? "ALL TESTS PASSED" : failures + " TEST(S) FAILED"));
   process.exit(failures === 0 ? 0 : 1);
 })().catch((e) => { console.error("crash:", e); process.exit(2); });

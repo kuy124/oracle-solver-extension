@@ -236,11 +236,27 @@
     }
   }
 
-  /** Candidate list (suggested answer first, then the rest) for the panel's Cycle. */
-  function buildCandidates(question, answerId) {
-    const correct = question.choices.find((c) => c.id === answerId);
-    const others = question.choices.filter((c) => c.id !== answerId);
-    return [{ answerId, text: correct?.text ?? "" }, ...others.map((c) => ({ answerId: c.id, text: c.text }))];
+  /**
+   * Candidate list for the panel's Cycle. Single-select: the suggested choice
+   * first, then the rest (cycle through alternatives). Multi-select: a single
+   * candidate = the whole suggested set (cycling individual choices is
+   * meaningless there), so Cycle stays disabled.
+   */
+  function buildCandidates(question, answerIds) {
+    const ids = normalizeIds(answerIds);
+    if (question?.multiSelect) {
+      const text = ids
+        .map((id) => question.choices.find((c) => c.id === id)?.text ?? "")
+        .filter(Boolean)
+        .join("  +  ");
+      return [{ answerId: ids[0], answerIds: ids, text }];
+    }
+    const correct = question.choices.find((c) => c.id === ids[0]);
+    const others = question.choices.filter((c) => c.id !== ids[0]);
+    return [
+      { answerId: ids[0], answerIds: [ids[0]], text: correct?.text ?? "" },
+      ...others.map((c) => ({ answerId: c.id, answerIds: [c.id], text: c.text })),
+    ];
   }
 
   // ---- Autopilot -----------------------------------------------------------

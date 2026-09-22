@@ -240,6 +240,7 @@ function showError(message) {
 
 function showBusy(message = "Solving\u2026") {
   if (!panel) buildPanel();
+  currentMulti = false;
   // Reset any previous suggestion so a stale answer never lingers while solving.
   const answer = panel.querySelector('[data-role="answer"]');
   if (answer) {

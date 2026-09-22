@@ -132,17 +132,48 @@
     });
   }
 
-  /** Apply an answer id and persist the outcome. */
-  function applyAndPersist(answerId, source, reason, confidence) {
-    const ok = applyAnswerById(answerId);
+  /**
+   * Apply a set of answer ids and persist the outcome.
+   * @param {string[]} answerIds
+   * @param {"key"|"ai"|"manual"|string} source
+   * @param {string} reason
+   * @param {number} confidence
+   */
+  function applyAndPersist(answerIds, source, reason, confidence) {
+    const ids = normalizeIds(answerIds);
+    if (ids.length === 0) {
+      panel.showError?.("No answer to apply.");
+      return false;
+    }
+    const ok = applyAnswersByIds(ids);
     if (!ok) {
       panel.showError?.("Could not find that choice on the page.");
       return false;
     }
     if (currentHash) {
-      putEntry(currentHash, { answerId, source: source ?? "manual", reason, confidence }).catch(() => {});
+      putEntry(currentHash, {
+        answerId: ids[0],
+        answerIds: ids,
+        answerIndexes: indexesForIds(ids),
+        multiSelect: ids.length > 1,
+        source: source ?? "manual",
+        reason,
+        confidence,
+      }).catch(() => {});
     }
     return true;
+  }
+
+  /** Coerce any answer representation into a clean array of ids. */
+  function normalizeIds(value) {
+    if (Array.isArray(value)) return value.filter(Boolean);
+    return value ? [value] : [];
+  }
+
+  /** Map a set of answer ids back to their current page indexes (best-effort). */
+  function indexesForIds(ids) {
+    const choices = lastQuestion?.choices ?? [];
+    return ids.map((id) => choices.findIndex((c) => c.id === id)).filter((i) => i >= 0);
   }
 
   /** Candidate list (suggested answer first, then the rest) for the panel's Cycle. */

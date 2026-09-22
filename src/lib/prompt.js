@@ -334,5 +334,9 @@ OUTPUT: ONLY a JSON object, no markdown fences:
     parseSolverReply,
     buildVerifierPrompt,
     parseVerifierReply,
+    buildMultiSolverPrompt,
+    parseMultiSolverReply,
+    buildMultiVerifierPrompt,
+    parseMultiVerifierReply,
   };
 })();

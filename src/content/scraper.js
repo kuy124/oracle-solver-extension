@@ -33,6 +33,13 @@ function isAssessmentPage() {
   return Boolean(document.querySelector("#collapse-Choices-reg") && document.querySelector("#question-Text"));
 }
 
+/** Read the choices-region heading / P190_CHOICES_TITLE (corroborating hint). */
+function readChoiceTitle() {
+  const fromItem = document.querySelector("#P190_CHOICES_TITLE")?.value ?? "";
+  const fromHeading = document.querySelector("#collapse-Choices-reg_heading")?.textContent ?? "";
+  return `${fromItem} ${fromHeading}`;
+}
+
 /**
  * Visible text of an element. Prefers innerText (respects visibility) but
  * falls back to textContent where innerText is unavailable (e.g. jsdom).

@@ -96,17 +96,30 @@ function applyAnswerById(answerId) {
  * (responseType 1/3) the page's own clearAllChoices() keeps only the last pick,
  * so callers should pass a single id there; for multi-select (type 2) every id
  * accumulates.
+ *
+ * A second pass re-asserts every id: some APEX pages re-render the choices region
+ * asynchronously after a click and can drop an earlier selection, so we re-apply
+ * the whole set once more (idempotent) to make sure ALL of them end up selected.
  * @param {string[]} answerIds
  * @returns {boolean} true if EVERY id was found + selected
  */
 function applyAnswersByIds(answerIds) {
   const ids = Array.isArray(answerIds) ? answerIds.filter(Boolean) : [];
   if (ids.length === 0) return false;
-  let allOk = true;
-  for (const id of ids) {
-    if (!applyAnswerById(id)) allOk = false;
-  }
-  return allOk;
+
+  const applyOnce = () => {
+    let allOk = true;
+    for (const id of ids) {
+      if (!applyAnswerById(id)) allOk = false;
+    }
+    return allOk;
+  };
+
+  const firstPass = applyOnce();
+  // Re-assert (cheap, idempotent) so an async page refresh cannot leave only the
+  // last clicked choice selected.
+  const secondPass = applyOnce();
+  return firstPass && secondPass;
 }
 
 globalThis.OQSApply = { clearAllChoices, applyAnswerById, applyAnswersByIds };

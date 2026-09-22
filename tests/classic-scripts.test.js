@@ -151,7 +151,10 @@ const SHIPPED = [
     const cs = manifest.content_scripts[0];
     assert(cs.js[0] === "src/lib/version.js", "version.js is the first content script");
     const sw = fs.readFileSync(path.join(EXT, "src/background/service-worker.js"), "utf8");
-    assert(sw.includes("../lib/version.js"), "service worker imports version.js");
+    assert(
+      sw.includes('"/src/lib/version.js"') && !sw.includes('"../lib/'),
+      "service worker imports version.js via a root-absolute path"
+    );
   }
 
   console.log("\n== Service worker loads via importScripts() (classic) ==");

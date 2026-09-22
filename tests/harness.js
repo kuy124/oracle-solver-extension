@@ -272,9 +272,11 @@ function loadServiceWorker(env = {}) {
   };
 
   // Emulate importScripts: read + eval each dependency with the same sandbox.
+  // Supports both extension-root-absolute paths ("/src/lib/...") - which is what
+  // the worker now uses - and worker-relative paths ("../lib/...").
   sandbox.importScripts = (...paths) => {
     for (const p of paths) {
-      const full = path.resolve(workerDir, p);
+      const full = p.startsWith("/") ? path.resolve(EXT, "." + p) : path.resolve(workerDir, p);
       const code = fs.readFileSync(full, "utf8");
       const fn = new Function(
         "globalThis", "self", "chrome", "fetch", "console", "setTimeout", "clearTimeout",

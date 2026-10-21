@@ -44,6 +44,26 @@
     [/\bnull\b/i, 0.04],
   ];
 
+  /**
+   * GENERAL academic markers, so a hard non-SQL question (Database Design,
+   * theory, logic, another language) is also treated as "high level". Kept
+   * separate from the SQL band so SQL behaviour is unchanged. Includes the
+   * common Indonesian Academy phrasings since OA runs localized.
+   * @type {Array<[RegExp, number]>}
+   */
+  const GENERAL_MARKERS = [
+    // Negation / comparison traps ("which is NOT", "all EXCEPT", "TRUE or FALSE").
+    [/\b(?:which|manakah)\b[^?]{0,40}\b(?:not|bukan|kecuali|except)\b/i, 0.12],
+    [/\b(?:except|kecuali|true\s+or\s+false|benar\s+atau\s+salah)\b/i, 0.08],
+    // Database-design / modelling vocabulary (the OA "Database Design" course).
+    [/\b(?:normaliz|denormaliz|cardinalit|optionalit|relation|relationship|entity|attribute)\w*/i, 0.14],
+    [/\b(?:opsionalit|kardinalit|hubungan|relasi|entitas|atribut|normalisasi)\w*/i, 0.14],
+    // Multi-part / "choose all" reasoning.
+    [/\bselect\s+all\s+that\s+apply\b|\bpilih\s+(?:dua|tiga|empat|beberapa|semua)\b/i, 0.1],
+    // Code fences / code identifiers in a non-SQL question.
+    [/```|~~~|\bdef\s+\w+\s*\(|\bfunction\s+\w+\s*\(/i, 0.1],
+  ];
+
   /** Count occurrences of the SQL keyword SELECT (multiple => subqueries). */
   function countSelects(text) {
     return (text.match(/\bselect\b/gi) ?? []).length;
@@ -69,6 +89,10 @@
     // 3. Keyword component: sum marker weights, saturating at 1.
     let kw = 0;
     for (const [re, weight] of COMPLEXITY_MARKERS) {
+      if (re.test(text)) kw += weight;
+    }
+    // General academic markers (non-SQL hard questions also count).
+    for (const [re, weight] of GENERAL_MARKERS) {
       if (re.test(text)) kw += weight;
     }
     // Extra credit for multiple SELECTs (subqueries / set operations).

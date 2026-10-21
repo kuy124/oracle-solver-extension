@@ -18,8 +18,11 @@ const suites = [
   "stale-guard.test.js",    // stale solve results are dropped
   "image-question.test.js", // image questions detected + reported
   "multi-select.test.js",   // "select all that apply": set scrape/solve/apply/submit
+  "adaptive-prompt.test.js", // question-type detection + generalized prompts (SQL vs theory vs code)
   "busy-reset.test.js",     // showBusy clears prior suggestion
   "human.test.js",          // human mode: difficulty heuristic + deliberate misses
+  "providers.test.js",      // provider layer: catalogs, Pollinations client, failover
+  "gemini-web.test.js",     // the Gemini WEB client: frame parser, payload, single pass
 ];
 
 let failed = 0;

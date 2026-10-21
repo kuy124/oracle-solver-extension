@@ -6,7 +6,8 @@
  */
 
 (() => {
-  const { MODELS } = globalThis.OQSPrompt;
+  const { PROVIDERS, BASE_URL_PRESETS, modelsFor, defaultModelFor, resolveModel, providerById } =
+    globalThis.OQSPrompt;
   const {
     loadSettings,
     saveSettings,
@@ -40,16 +41,97 @@
     $("keyCount").textContent = `${total} saved answer${total === 1 ? "" : "s"} \u00b7 ${ignored.size} ignored.`;
   }
 
-  function populateModels(selectedId) {
+  /** Fill the provider dropdown. */
+  function populateProviders(selectedId) {
+    const select = $("provider");
+    select.replaceChildren();
+    for (const provider of PROVIDERS) {
+      const opt = document.createElement("option");
+      opt.value = provider.id;
+      opt.textContent = provider.name;
+      if (provider.id === selectedId) opt.selected = true;
+      select.append(opt);
+    }
+  }
+
+  /** Fill the model dropdown for the given provider. */
+  function populateModels(providerId, selectedId) {
     const select = $("modelId");
     select.replaceChildren();
-    for (const model of MODELS) {
+    const list = modelsFor(providerId);
+    // A model id from another provider is not valid here: fall back to the
+    // provider's own default so the select always shows a usable model.
+    const wanted = resolveModel(providerId, selectedId);
+    for (const model of list) {
       const opt = document.createElement("option");
       opt.value = model.id;
       opt.textContent = `${model.name} \u00b7 ${model.provider}`;
-      if (model.id === selectedId) opt.selected = true;
+      if (model.id === wanted) opt.selected = true;
       select.append(opt);
     }
+    if (!list.length) {
+      // No fixed catalog (local server / custom endpoint): the free-text box
+      // next to it is the model picker.
+      const opt = document.createElement("option");
+      opt.value = "";
+      opt.textContent = "— type the model id below —";
+      opt.selected = true;
+      select.append(opt);
+    }
+  }
+
+  /** Fill the endpoint-preset dropdown. */
+  function populateBaseUrlPresets(selectedUrl) {
+    const select = $("baseUrlPreset");
+    select.replaceChildren();
+    for (const preset of BASE_URL_PRESETS) {
+      const opt = document.createElement("option");
+      opt.value = preset.baseUrl;
+      opt.textContent = preset.name;
+      if (preset.baseUrl && preset.baseUrl === selectedUrl) opt.selected = true;
+      select.append(opt);
+    }
+    const custom = document.createElement("option");
+    custom.value = "";
+    custom.textContent = "Custom…";
+    custom.selected = !selectedUrl || !BASE_URL_PRESETS.some((p) => p.baseUrl === selectedUrl);
+    select.append(custom);
+  }
+
+  /**
+   * Show only the controls the selected provider actually needs, and dim the
+   * ones it does not.
+   */
+  function updateProviderRow(settings = {}) {
+    const provider = providerById($("provider").value);
+    const needsKey = provider?.needsKey === true;
+    const hasEndpoint = Boolean(provider?.baseUrl) || provider?.needsBaseUrl === true;
+    const hasCatalog = modelsFor($("provider").value).length > 0;
+    // On-device AI has a fixed model: no model picker at all.
+    const fixedModel = provider?.id === "ondevice";
+
+    $("apiKeyRow").style.display = needsKey ? "" : "none";
+    $("apiKey").disabled = !needsKey;
+    $("baseUrlRow").style.display = hasEndpoint ? "" : "none";
+    $("baseUrlCustomRow").style.display = hasEndpoint ? "" : "none";
+    $("baseUrl").disabled = !hasEndpoint;
+    $("baseUrlPreset").disabled = !hasEndpoint;
+    // Catalog providers pick from a list; the rest get a free-text box.
+    $("modelId").disabled = !hasCatalog || fixedModel;
+    $("modelTextRow").style.display = hasCatalog || fixedModel ? "none" : "";
+    $("modelIdText").disabled = hasCatalog || fixedModel;
+
+    const info = [];
+    if (provider?.private) info.push("Runs on your own machine — the question is not sent to any server.");
+    if (provider?.id === "ondevice") {
+      info.push("Needs Chrome 138+ on desktop, 22 GB free disk and 4 GB VRAM or 16 GB RAM.");
+    }
+    if (provider?.id === "geminiweb") {
+      info.push("Uses the public Gemini web app — no key, no account. Answers in a single pass (~5 s).");
+    }
+    const url = String(settings.baseUrl ?? "").trim() || provider?.baseUrl || "";
+    if (url) info.push(`Endpoint: ${url}`);
+    $("providerInfo").textContent = info.join(" ");
   }
 
   /** Reflect the current settings into the form controls. */
@@ -72,10 +154,15 @@
     $("humanMinDifficulty").value = String(s.humanMinDifficulty);
     $("humanMinDiffRange").value = String(s.humanMinDifficulty);
 
-    if ($("modelId").options.length) $("modelId").value = s.modelId;
+    if ($("provider").options.length) $("provider").value = s.provider ?? PROVIDERS[0].id;
+    if ($("modelId").options.length) $("modelId").value = resolveModel(s.provider, s.modelId);
+    $("modelIdText").value = s.modelId ?? "";
+    $("apiKey").value = s.apiKey ?? "";
+    $("baseUrl").value = s.baseUrl ?? "";
 
     updateAutopilotSubRows();
     updateHumanSubRows();
+    updateProviderRow(s);
     updatePresetHighlight(s);
   }
 
@@ -133,7 +220,9 @@
     $("verTag").textContent = `v${VERSION}`;
 
     const settings = await loadSettings();
-    populateModels(settings.modelId);
+    populateProviders(settings.provider);
+    populateModels(settings.provider, settings.modelId);
+    populateBaseUrlPresets(settings.baseUrl);
     renderForm(settings);
     await refreshCount();
 
@@ -154,8 +243,100 @@
     });
     $("showReason").addEventListener("change", (e) => saveSettings({ showReason: e.target.checked }));
     $("modelId").addEventListener("change", (e) => {
+      // The placeholder option ("type the model id below") must not wipe the
+      // value the free-text box holds.
+      if (!e.target.value) return;
       saveSettings({ modelId: e.target.value });
       setStatus(`Preferred model: ${e.target.selectedOptions[0].textContent}`);
+    });
+
+    // --- Provider ---
+    $("provider").addEventListener("change", async (e) => {
+      const providerId = e.target.value;
+      const provider = providerById(providerId);
+      // Model ids AND endpoints are provider-specific: reset both.
+      const modelId = defaultModelFor(providerId);
+      const baseUrl = provider?.baseUrl ?? "";
+      await saveSettings({ provider: providerId, modelId, baseUrl });
+      populateModels(providerId, modelId);
+      populateBaseUrlPresets(baseUrl);
+      renderForm(await loadSettings());
+      setStatus(`Provider: ${e.target.selectedOptions[0].textContent}`);
+    });
+
+    $("apiKey").addEventListener("change", async (e) => {
+      const apiKey = e.target.value.trim();
+      await saveSettings({ apiKey });
+      setStatus(apiKey ? "API key saved (this browser only)." : "API key cleared.");
+    });
+
+    $("baseUrlPreset").addEventListener("change", async (e) => {
+      const baseUrl = e.target.value;
+      await saveSettings({ baseUrl });
+      $("baseUrl").value = baseUrl;
+      setStatus(baseUrl ? `Endpoint: ${baseUrl}` : "Endpoint cleared.");
+    });
+
+    $("baseUrl").addEventListener("change", async (e) => {
+      const baseUrl = e.target.value.trim();
+      await saveSettings({ baseUrl });
+      setStatus(baseUrl ? `Endpoint: ${baseUrl}` : "Endpoint cleared.");
+    });
+
+    $("modelIdText").addEventListener("change", async (e) => {
+      const modelId = e.target.value.trim();
+      await saveSettings({ modelId });
+      setStatus(modelId ? `Model id: ${modelId}` : "Model id cleared.");
+    });
+
+    $("detectModelsBtn").addEventListener("click", async () => {
+      if (!chrome.runtime?.sendMessage) {
+        setStatus("Cannot reach the background worker.", true);
+        return;
+      }
+      const providerId = $("provider").value;
+      // The Gemini web app has no endpoint URL: it lists its own models.
+      const baseUrl = $("baseUrl").value.trim();
+      if (providerId !== "geminiweb" && !baseUrl) {
+        setStatus("Set an endpoint URL first.", true);
+        return;
+      }
+      setStatus("Asking the endpoint for its models\u2026");
+      try {
+        const res = await chrome.runtime.sendMessage({
+          type: "OQS_LIST_MODELS",
+          payload: { baseUrl, apiKey: $("apiKey").value.trim(), provider: providerId },
+        });
+        if (!res?.ok) {
+          setStatus(`Could not list models: ${res?.error ?? "unknown error"}`, true);
+          return;
+        }
+        const list = $("modelList");
+        list.replaceChildren();
+        for (const m of res.models ?? []) {
+          const opt = document.createElement("option");
+          opt.value = m.id;
+          list.append(opt);
+        }
+        setStatus(`${(res.models ?? []).length} models found \u2014 type one into the model box.`);
+      } catch (err) {
+        setStatus(`Could not list models: ${err?.message ?? err}`, true);
+      }
+    });
+
+    $("testProviderBtn").addEventListener("click", async () => {
+      if (!chrome.runtime?.sendMessage) {
+        setStatus("Cannot reach the background worker.", true);
+        return;
+      }
+      setStatus("Testing provider\u2026");
+      try {
+        const res = await chrome.runtime.sendMessage({ type: "OQS_TEST_PROVIDER" });
+        if (res?.ok) setStatus(`OK \u2014 ${res.provider} / ${res.model} answered.`);
+        else setStatus(`Failed: ${res?.error ?? "unknown error"}`, true);
+      } catch (err) {
+        setStatus(`Failed: ${err?.message ?? err}`, true);
+      }
     });
 
     // --- Autopilot ---

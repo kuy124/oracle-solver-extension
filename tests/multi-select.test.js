@@ -96,7 +96,9 @@ function fetchReturningIndexes(indexes) {
   // ------------------------------------------------------------------- Worker
   console.log("\n== Worker: solveConsensusMulti returns an answer SET ==");
   {
-    const store = {};
+    // The mock below speaks the TUSK wire format, so pin the provider to tusk
+    // (the default provider, geminiweb, answers in a single pass).
+    const store = { settings: { aiEnabled: true, doubleCheck: true, provider: "tusk", modelId: "bce9d196-5aa7-436a-9e28-760c6d3f8f3a" } };
     const sw = loadServiceWorker({
       chrome: { storage: stubStorage(store), runtime: {} },
       fetch: fetchReturningIndexes([0, 2]),
@@ -130,7 +132,9 @@ function fetchReturningIndexes(indexes) {
   // ------------------------------------------- Worker: count enforcement
   console.log("\n== Worker: a partial set is completed to the required count ==");
   {
-    const store = {};
+    // Pinned to tusk: the mock speaks the Tusk wire format, and the count
+    // enforcement is driven by the 3-voter panel.
+    const store = { settings: { aiEnabled: true, doubleCheck: true, provider: "tusk", modelId: "bce9d196-5aa7-436a-9e28-760c6d3f8f3a" } };
     let call = 0;
     // Solvers + verifier all return a single index ([2]); the fill pass returns
     // [0], so the two-answer question must still end up with TWO answers.

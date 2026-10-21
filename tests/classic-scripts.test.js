@@ -23,7 +23,10 @@ const SHIPPED = [
   "src/content/applier.js",
   "src/content/panel.js",
   "src/content/content.js",
+  "src/background/openai-client.js",
   "src/background/tusk-client.js",
+  "src/background/pollinations-client.js",
+  "src/background/ondevice-client.js",
   "src/background/service-worker.js",
   "src/options/options.js",
 ];
@@ -106,7 +109,7 @@ const SHIPPED = [
   // A shared global (same realm) evaluated twice must be idempotent (IIFE-wrapped,
   // internals scoped, only globalThis.<ns> reassigned).
   {
-    const shared = ["src/lib/prompt.js", "src/lib/hash.js", "src/lib/answer-key.js", "src/lib/human.js", "src/background/tusk-client.js"];
+    const shared = ["src/lib/prompt.js", "src/lib/hash.js", "src/lib/answer-key.js", "src/lib/human.js", "src/background/openai-client.js", "src/background/tusk-client.js", "src/background/pollinations-client.js", "src/background/ondevice-client.js"];
     const realm = {};
     realm.globalThis = realm;
     realm.TextEncoder = require("util").TextEncoder;
@@ -138,6 +141,15 @@ const SHIPPED = [
     assert(typeof realm.OQSPrompt?.buildSolverPrompt === "function", "OQSPrompt still valid after double-load");
     assert(typeof realm.OQSHash?.hashQuestion === "function", "OQSHash still valid after double-load");
     assert(typeof realm.OQSTusk?.ask === "function", "OQSTusk still valid after double-load");
+    assert(typeof realm.OQSPollinations?.ask === "function", "OQSPollinations still valid after double-load");
+    assert(typeof realm.OQSOpenAI?.chat === "function", "OQSOpenAI still valid after double-load");
+    assert(typeof realm.OQSonDevice?.ask === "function", "OQSonDevice still valid after double-load");
+    const retryDelay = realm.OQSTusk.__test.retryAfterDelayMs;
+    const now = Date.UTC(2026, 8, 23);
+    assert(retryDelay("5", now) === 5000, "Retry-After delta-seconds parses");
+    assert(retryDelay(new Date(now + 12000).toUTCString(), now) === 12000, "Retry-After HTTP-date parses");
+    assert(retryDelay(new Date(now - 10000).toUTCString(), now) === 1000, "expired Retry-After uses the minimum delay");
+    assert(retryDelay("not a date", now) === 5000, "malformed Retry-After uses the fallback delay");
   }
 
   console.log("\n== Build stamp is present and in sync with the manifest ==");
@@ -161,6 +173,9 @@ const SHIPPED = [
   // In-memory chrome.storage backing for the worker, provided at load time so
   // answer-key.js captures the right chrome object.
   const store = {};
+  // The mock below speaks the TUSK wire format, so pin the provider to tusk
+  // (the default provider, geminiweb, answers in a single pass).
+  store.settings = { aiEnabled: true, doubleCheck: true, provider: "tusk", modelId: "bce9d196-5aa7-436a-9e28-760c6d3f8f3a" };
   const stubStorage = {
     local: {
       get: (k) => Promise.resolve(typeof k === "string" ? { [k]: store[k] } : { ...store }),
@@ -204,6 +219,10 @@ const SHIPPED = [
 
   if (sw) {
     assert(typeof sw.globals.OQSTusk?.ask === "function", "worker sees OQSTusk.ask (via importScripts)");
+    assert(typeof sw.globals.OQSPollinations?.ask === "function", "worker sees OQSPollinations.ask (via importScripts)");
+    assert(typeof sw.globals.OQSGeminiWeb?.ask === "function", "worker sees OQSGeminiWeb.ask (via importScripts)");
+    assert(typeof sw.globals.OQSOpenAI?.chat === "function", "worker sees OQSOpenAI.chat (via importScripts)");
+    assert(typeof sw.globals.OQSonDevice?.ask === "function", "worker sees OQSonDevice.ask (via importScripts)");
     assert(typeof sw.globals.OQSPrompt?.buildSolverPrompt === "function", "worker sees OQSPrompt");
     assert(typeof sw.globals.OQSKey?.getEntry === "function", "worker sees OQSKey");
 
@@ -213,7 +232,7 @@ const SHIPPED = [
 
     const payload = {
       hash: "testhash",
-      questionText: "pick one",
+      questionText: "SELECT * FROM employees",
       choices: [{ id: "1", text: "a" }, { id: "2", text: "b" }, { id: "3", text: "c" }, { id: "4", text: "d" }],
     };
     const response = await new Promise((resolve) => {
@@ -235,6 +254,59 @@ const SHIPPED = [
       Array.isArray(store.answerKey?.testhash?.answerIds) && store.answerKey.testhash.answerIds.join(",") === "4",
       "answerIds persisted alongside the legacy answerId"
     );
+
+    console.log("\n== A lone solver vote must be checked by the verifier ==");
+    // The Tusk provider is used explicitly: this test drives its 3-voter
+    // panel (the default provider, geminiweb, answers in a single pass).
+    const loneStore = { settings: { aiEnabled: true, doubleCheck: true, provider: "tusk", modelId: "bce9d196-5aa7-436a-9e28-760c6d3f8f3a" } };
+    let solverReplies = 0;
+    let verifierCalls = 0;
+    const loneWorker = loadServiceWorker({
+      chrome: {
+        storage: {
+          local: {
+            get: (key) => Promise.resolve(typeof key === "string" ? { [key]: loneStore[key] } : { ...loneStore }),
+            set: (obj) => { Object.assign(loneStore, obj); return Promise.resolve(); },
+          },
+        },
+        runtime: {},
+      },
+      fetch: async (url, options) => {
+        if (String(url).includes("/conversations")) {
+          return { ok: true, headers: { get: () => null }, json: async () => ({ sessionId: "s2", chatId: "c2" }) };
+        }
+        const prompt = JSON.parse(options.body).content;
+        let token = "unparseable reply";
+        if (prompt.includes("EXPERT LENS - ORACLE SQL")) {
+          solverReplies += 1;
+          if (solverReplies === 1) token = '{"answerIndex":2,"confidence":0.4,"reason":"one voter"}';
+        } else if (prompt.startsWith("You are a meticulous Oracle SQL grader.")) {
+          verifierCalls += 1;
+          token = '{"agree":true,"answerIndex":2,"confidence":0.92,"reason":"confirmed"}';
+        }
+        const frame = JSON.stringify({ content: JSON.stringify({ content: token }) }) + "\n";
+        let sent = false;
+        return {
+          ok: true,
+          status: 200,
+          headers: { get: () => null },
+          body: { getReader: () => ({
+            read: async () => sent ? { done: true } : (sent = true, { done: false, value: new TextEncoder().encode(frame) }),
+            cancel: async () => {},
+          }) },
+        };
+      },
+    });
+    const loneResponse = await new Promise((resolve) => {
+      loneWorker.getMessageListener()({
+        type: "OQS_SOLVE",
+        payload: { hash: "one-vote", questionText: "SELECT * FROM employees", choices: [{ id: "1", text: "a" }, { id: "2", text: "b" }, { id: "3", text: "c" }] },
+      }, {}, resolve);
+    });
+    assert(solverReplies === 3, `all three voters are considered after lone and failed replies (got ${solverReplies})`);
+    assert(verifierCalls === 1, "the verifier checks the uncorroborated answer");
+    assert(loneResponse?.entry?.source === "ai-verified", `confirmed lone answer is marked verified (got ${loneResponse?.entry?.source})`);
+    assert(loneResponse?.entry?.confidence === 0.92, "verified confidence comes from the verifier, not a majority floor");
   }
 
   console.log("\n" + (failures === 0 ? "ALL TESTS PASSED" : failures + " TEST(S) FAILED"));

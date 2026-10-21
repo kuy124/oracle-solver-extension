@@ -80,6 +80,7 @@
     .row .label { flex: 1; min-width: 0; }
     .row .label .name { font-weight: 500; }
     .hint { color: var(--hint); font-size: 12px; display: block; margin-top: 2px; }
+    .hint a { color: #93c5fd; }
 
     /* Toggle switch */
     .switch { position: relative; width: 46px; height: 26px; flex: 0 0 auto; }
@@ -97,11 +98,13 @@
     .switch input:focus-visible + .track { outline: 2px solid #60a5fa; outline-offset: 2px; }
     .switch.danger input:checked + .track { background: var(--red); }
 
-    select, input[type="text"], input[type="number"], textarea {
+    select, input[type="text"], input[type="password"], input[type="number"], textarea {
       background: #12141a; color: var(--ink); border: 1px solid var(--line-2);
       border-radius: 7px; padding: 8px 10px; font: inherit;
     }
     select { min-width: 240px; }
+    input[type="password"], input[type="text"] { min-width: 240px; }
+    code { background: #23262e; padding: 1px 5px; border-radius: 4px; font-size: 12px; }
     textarea { width: 100%; min-height: 120px; font-family: Consolas, monospace; font-size: 12px; }
 
     /* Slider + number combo */
@@ -165,11 +168,63 @@
     </div>
 
     <section>
+      <h2>AI provider</h2>
+      <div class="row">
+        <div class="label">
+          <span class="name">Provider</span>
+          <span class="hint">Google Gemini web app needs no key and no account — the strongest zero-setup option. TuskCentral also needs no account. Pollinations is much stronger (GPT-5.4, Claude Sonnet 5, Gemini 3.8, DeepSeek V4, Kimi K3) but needs a free API key. The local and on-device options need no account at all — they run on your own machine.</span>
+        </div>
+        <select id="provider"></select>
+      </div>
+      <div class="row" id="apiKeyRow">
+        <div class="label">
+          <span class="name">API key</span>
+          <span class="hint" id="apiKeyHint">Free, no credit card: <a href="https://enter.pollinations.ai/keys" target="_blank" rel="noreferrer">enter.pollinations.ai/keys</a>. Kept in this browser only (chrome.storage.local) and sent in the request header, never in a URL.</span>
+        </div>
+        <input type="password" id="apiKey" placeholder="paste your free key" autocomplete="off" spellcheck="false" />
+      </div>
+      <div class="row" id="baseUrlRow">
+        <div class="label">
+          <span class="name">Endpoint</span>
+          <span class="hint">Any OpenAI-compatible endpoint. Every preset below has a free tier that YOU sign up for — the extension never ships or spends anybody's key.</span>
+        </div>
+        <select id="baseUrlPreset"></select>
+      </div>
+      <div class="row" id="baseUrlCustomRow">
+        <div class="label">
+          <span class="name">Endpoint URL</span>
+          <span class="hint">Base URL of the endpoint, e.g. <code>http://localhost:11434/v1</code>. The extension appends <code>/chat/completions</code>.</span>
+        </div>
+        <input type="text" id="baseUrl" placeholder="http://localhost:11434/v1" autocomplete="off" spellcheck="false" />
+      </div>
+      <div class="row">
+        <div class="label">
+          <span class="name">Preferred AI model</span>
+          <span class="hint">The list depends on the selected provider.</span>
+        </div>
+        <select id="modelId"></select>
+      </div>
+      <div class="row" id="modelTextRow">
+        <div class="label">
+          <span class="name">Model id</span>
+          <span class="hint">Type the model id your server uses, e.g. <code>qwen3-coder:30b</code>. Use “Detect models” to list them.</span>
+        </div>
+        <input type="text" id="modelIdText" placeholder="model id" autocomplete="off" spellcheck="false" list="modelList" />
+      </div>
+      <datalist id="modelList"></datalist>
+      <div class="actions">
+        <button id="testProviderBtn" type="button">Test provider</button>
+        <button id="detectModelsBtn" type="button">Detect models</button>
+      </div>
+      <div class="kv" id="providerInfo"></div>
+    </section>
+
+    <section>
       <h2>Solver</h2>
       <div class="row">
         <div class="label">
           <span class="name">Free AI fallback</span>
-          <span class="hint">Uses new.tusksearch.com (no API key). Uncached questions are sent there.</span>
+          <span class="hint">Uncached questions are sent to the selected provider above.</span>
         </div>
         <label class="switch"><input type="checkbox" id="aiEnabled" /><span class="track"></span><span class="thumb"></span></label>
       </div>
@@ -183,7 +238,7 @@
       <div class="row">
         <div class="label">
           <span class="name">3-model consensus (higher accuracy)</span>
-          <span class="hint">Three independent models vote; majority wins. ~2–4 requests/question.</span>
+          <span class="hint">Three independent models vote; majority wins. ~2–4 requests/question. On Pollinations this needs an API key — the keyless endpoint is too slow to vote with.</span>
         </div>
         <label class="switch"><input type="checkbox" id="doubleCheck" /><span class="track"></span><span class="thumb"></span></label>
       </div>
@@ -192,10 +247,6 @@
           <span class="name">Show AI reasoning</span>
         </div>
         <label class="switch"><input type="checkbox" id="showReason" /><span class="track"></span><span class="thumb"></span></label>
-      </div>
-      <div class="row">
-        <div class="label"><span class="name">Preferred AI model</span></div>
-        <select id="modelId"></select>
       </div>
     </section>
 

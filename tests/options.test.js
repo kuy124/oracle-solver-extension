@@ -54,6 +54,10 @@ function makeOptions() {
   const ver = doc.getElementById("verTag").textContent;
   assert(/^v\d+\.\d+\.\d+$/.test(ver), `version tag rendered (got "${ver}")`);
   assert(doc.getElementById("modelId").options.length > 0, "model dropdown populated");
+  assert(doc.getElementById("provider").options.length === 7, "provider dropdown lists every provider");
+  assert(doc.getElementById("provider").value === "geminiweb", "the Gemini web app is the default provider");
+  assert(doc.getElementById("apiKey").disabled === true, "API-key field disabled while the provider needs no key");
+  assert(doc.getElementById("baseUrlRow").style.display === "none", "endpoint row hidden for a provider without one");
   assert(doc.getElementById("presetSafe").classList.contains("active"), "Suggest-only preset highlighted by default");
   assert(doc.getElementById("aiEnabled").checked === true, "AI fallback defaults ON");
 
@@ -115,6 +119,44 @@ function makeOptions() {
   sel.dispatchEvent(new window.Event("change"));
   await tick(40);
   assert(store.settings.modelId === picked, "model selection persisted");
+
+  console.log("\n== Switching provider swaps the model list ==");
+  const tuskModels = [...sel.options].map((o) => o.value);
+  const prov = doc.getElementById("provider");
+  prov.value = "pollinations";
+  prov.dispatchEvent(new window.Event("change"));
+  await tick(80);
+  const newModels = [...doc.getElementById("modelId").options].map((o) => o.value);
+  assert(store.settings.provider === "pollinations", "provider persisted");
+  assert(newModels.length !== tuskModels.length, "the model list changed with the provider");
+  assert(newModels.every((m) => m.includes("/")), "the new list holds pollinations model ids");
+  assert(store.settings.modelId === newModels[0], `the model id was reset to the new provider's (got ${store.settings.modelId})`);
+  assert(doc.getElementById("apiKey").disabled === false, "API-key field enabled for a provider that needs one");
+
+  console.log("\n== API key persists ==");
+  const key = doc.getElementById("apiKey");
+  key.value = "pk_test_key";
+  key.dispatchEvent(new window.Event("change"));
+  await tick(60);
+  assert(store.settings.apiKey === "pk_test_key", "API key saved to storage");
+  assert(doc.getElementById("apiKey").getAttribute("type") === "password", "API key field is masked");
+
+  console.log("\n== A local provider needs no key and takes a typed model id ==");
+  const prov2 = doc.getElementById("provider");
+  prov2.value = "ollama";
+  prov2.dispatchEvent(new window.Event("change"));
+  await tick(80);
+  assert(store.settings.provider === "ollama", "local provider persisted");
+  assert(store.settings.baseUrl === "http://localhost:11434/v1", "the local endpoint was filled in");
+  assert(doc.getElementById("apiKey").disabled === true, "no key needed for a local server");
+  assert(doc.getElementById("baseUrlRow").style.display === "", "the endpoint row is shown for a local provider");
+  assert(doc.getElementById("modelTextRow").style.display === "", "the free-text model box is shown");
+  assert(doc.getElementById("modelId").disabled === true, "the catalog dropdown is disabled without a catalog");
+  const modelText = doc.getElementById("modelIdText");
+  modelText.value = "qwen3-coder:30b";
+  modelText.dispatchEvent(new window.Event("change"));
+  await tick(60);
+  assert(store.settings.modelId === "qwen3-coder:30b", "the typed model id is saved");
 
   console.log("\n== Human mode: sub-rows disabled until enabled ==");
   assert(doc.getElementById("humanRateRow").querySelector("input").disabled === true, "miss-rate disabled when human mode off");

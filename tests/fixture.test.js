@@ -96,6 +96,10 @@ const g = window;
   const parsed = g.OQSPrompt.parseSolverReply('```json\n{"answerIndex":3,"confidence":0.9,"reason":"aliases consistent"}\n```');
   assert(parsed && parsed.answerIndex === 3, "parses fenced JSON reply");
   assert(parsed && parsed.confidence === 0.9, "parses confidence");
+  assert(g.OQSPrompt.parseSolverReply('{"answerIndex":null,"confidence":0.99}') === null, "does not treat null as answer 0");
+  assert(g.OQSPrompt.parseVerifierReply('{"answerIndex":false}') === null, "does not treat false as verifier answer 0");
+  assert(g.OQSPrompt.parseSolverReply('{"answerIndex":"3"}')?.answerIndex === 3, "accepts a numeric-string answer index");
+  assert(g.OQSPrompt.parseSolverReply('{"answerIndex":1,"confidence":50}')?.confidence === 0, "rejects confidence outside 0..1");
   const bad = g.OQSPrompt.parseSolverReply("no json here");
   assert(bad === null, "rejects non-JSON reply");
 

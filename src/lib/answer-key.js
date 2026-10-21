@@ -11,7 +11,19 @@
 
   const DEFAULT_SETTINGS = {
     aiEnabled: true,
-    modelId: "bce9d196-5aa7-436a-9e28-760c6d3f8f3a", // GPT-5.4 Mini (accurate on SQL)
+    // Which free-AI backend to use. "geminiweb" (the public Gemini web app)
+    // needs no account and no key and is the strongest zero-setup option;
+    // "pollinations" is far stronger still but needs a free API key (see
+    // `apiKey`).
+    provider: "geminiweb",
+    // API key for providers that need one (Pollinations, custom endpoints).
+    // Stored in chrome.storage.local, i.e. this browser profile only.
+    apiKey: "",
+    // Endpoint base URL: the user's own OpenAI-compatible endpoint (or an
+    // override for a local server on another port).
+    baseUrl: "",
+    // Preferred model of the ACTIVE provider (ids are provider-specific).
+    modelId: "fbb127bbb056c959", // Gemini Flash (the geminiweb default)
     autoSuggest: true,
     showReason: true,
     // Second-pass verification (self-check) for higher accuracy.
@@ -199,10 +211,10 @@
   // also survives the APEX full-page reload, which is all autopilot needs.
 
   const AUTOPILOT_KEY = "autopilotState";
-  const AUTOPILOT_EMPTY = { count: 0, stopped: false, lastQuestionId: "" };
+  const AUTOPILOT_EMPTY = { count: 0, stopped: false, lastQuestionId: "", assessmentFingerprint: "" };
 
   /**
-   * @returns {Promise<{ count: number, stopped: boolean, lastQuestionId: string }>}
+   * @returns {Promise<{ count: number, stopped: boolean, lastQuestionId: string, assessmentFingerprint: string }>}
    */
   async function loadAutopilotState() {
     try {
@@ -215,7 +227,7 @@
     }
   }
 
-  /** @param {Partial<{count:number,stopped:boolean,lastQuestionId:string}>} patch */
+  /** @param {Partial<{count:number,stopped:boolean,lastQuestionId:string,assessmentFingerprint:string}>} patch */
   async function saveAutopilotState(patch) {
     try {
       const current = await loadAutopilotState();

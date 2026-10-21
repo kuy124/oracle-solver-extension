@@ -17,23 +17,39 @@ importScripts(
   "/src/lib/prompt.js",
   "/src/lib/answer-key.js",
   "/src/lib/human.js",
-  "/src/background/tusk-client.js"
+  "/src/background/openai-client.js",
+  "/src/background/tusk-client.js",
+  "/src/background/pollinations-client.js",
+  "/src/background/gemini-web-client.js",
+  "/src/background/ondevice-client.js"
 );
 
 // Fail loudly and clearly if a dependency did not wire up (e.g. a stale unpacked
 // build that is missing a file), instead of a confusing downstream error.
-if (!globalThis.OQSTusk || !globalThis.OQSPrompt || !globalThis.OQSKey) {
+if (!globalThis.OQSOpenAI || !globalThis.OQSTusk || !globalThis.OQSPollinations || !globalThis.OQSGeminiWeb || !globalThis.OQSonDevice || !globalThis.OQSPrompt || !globalThis.OQSKey) {
   console.error(
     "[OQS] A background dependency failed to load. Reload the extension " +
       "(chrome://extensions -> Reload) and, if it persists, remove + restart " +
       "Chrome + Load unpacked again. Missing: " +
-      [!globalThis.OQSTusk && "OQSTusk", !globalThis.OQSPrompt && "OQSPrompt", !globalThis.OQSKey && "OQSKey"]
+      [
+        !globalThis.OQSOpenAI && "OQSOpenAI",
+        !globalThis.OQSTusk && "OQSTusk",
+        !globalThis.OQSPollinations && "OQSPollinations",
+        !globalThis.OQSGeminiWeb && "OQSGeminiWeb",
+        !globalThis.OQSonDevice && "OQSonDevice",
+        !globalThis.OQSPrompt && "OQSPrompt",
+        !globalThis.OQSKey && "OQSKey",
+      ]
         .filter(Boolean)
         .join(", ")
   );
 }
 
-const { ask } = globalThis.OQSTusk;
+const { chat: askOpenAI, listModels: listOpenAIModels } = globalThis.OQSOpenAI;
+const { ask: askTusk } = globalThis.OQSTusk;
+const { ask: askPollinations } = globalThis.OQSPollinations;
+const { ask: askGeminiWeb } = globalThis.OQSGeminiWeb;
+const { ask: askOnDevice } = globalThis.OQSonDevice;
 const {
   buildSolverPrompt,
   parseSolverReply,
@@ -44,8 +60,13 @@ const {
   buildMultiVerifierPrompt,
   parseMultiVerifierReply,
   buildMultiFillPrompt,
-  DEFAULT_MODEL_ID,
-  CONSENSUS_MODELS,
+  PROVIDERS,
+  DEFAULT_PROVIDER_ID,
+  consensusFor,
+  defaultModelFor,
+  modelsFor,
+  providerById,
+  resolveModel,
 } = globalThis.OQSPrompt;
 const { getEntry, putEntry, loadSettings } = globalThis.OQSKey;
 
@@ -57,6 +78,134 @@ function enqueue(task) {
   const run = queue.then(task, task);
   queue = run.catch(() => {});
   return run;
+}
+
+// ---- Provider layer --------------------------------------------------------
+//
+// The extension can talk to more than one free AI backend. The user picks one
+// in the options page; every request goes through the chosen provider and, if
+// that provider fails (rate limit, network, dead endpoint), the next one is
+// tried. TuskCentral is always in the chain, so a broken provider never leaves
+// the user with no answer at all.
+
+/**
+ * The endpoint base URL for a provider. The user may override it in Options
+ * (needed for the "custom" provider, useful to move a local server to another
+ * port).
+ * @param {string} providerId
+ * @param {any} settings
+ */
+function baseUrlFor(providerId, settings) {
+  const provider = providerById(providerId);
+  const url = String(settings?.baseUrl ?? "").trim() || provider?.baseUrl || "";
+  if (!url) throw new Error("No endpoint URL is set for this provider.");
+  return url;
+}
+
+/**
+ * Ask ONE provider. Throws on failure so the caller can fail over.
+ * @param {string} providerId
+ * @param {string} prompt
+ * @param {string} modelId   a model id OF THAT PROVIDER
+ * @param {any} settings
+ * @returns {Promise<string>}
+ */
+async function askProvider(providerId, prompt, modelId, settings) {
+  switch (providerId) {
+    case "pollinations":
+      return askPollinations(prompt, modelId, settings?.apiKey);
+    case "geminiweb":
+      // The Gemini web app needs the model's internal number alongside its
+      // hex id, so look it up in this provider's catalog.
+      return askGeminiWeb(prompt, geminiWebModel(modelId));
+    case "ollama":
+    case "lmstudio":
+    case "custom":
+      return askOpenAI({
+        baseUrl: baseUrlFor(providerId, settings),
+        apiKey: settings?.apiKey,
+        model: modelId,
+        prompt,
+      });
+    case "ondevice":
+      // Never let a solve silently start a multi-GB model download.
+      return askOnDevice(prompt, { allowDownload: false });
+    case "tusk":
+      return askTusk(prompt, modelId);
+    default:
+      // Never fall through to another backend with a foreign model id: the
+      // backend would reject it. Fail over instead.
+      throw new Error(`Unknown AI provider: ${providerId}`);
+  }
+}
+
+/**
+ * The Gemini web client needs a model id AND its number; look both up in the
+ * provider catalog. An unknown id falls back to the provider default.
+ * @param {string} modelId
+ * @returns {{ modelId: string, modelNumber: number }}
+ */
+function geminiWebModel(modelId) {
+  const list = modelsFor("geminiweb");
+  const chosen = list.find((m) => m.id === modelId) ?? list.find((m) => m.id === defaultModelFor("geminiweb"));
+  return { modelId: chosen?.id ?? modelId, modelNumber: chosen?.number ?? 1 };
+}
+
+/**
+ * The provider chain for the current settings: the chosen provider first, then
+ * every other HOSTED provider as a fallback. A "private" provider (local
+ * server, on-device AI, custom endpoint) never falls back to a hosted one —
+ * the question must not leave the machine the user chose.
+ * @param {any} settings
+ * @returns {string[]}
+ */
+function providerChain(settings) {
+  const primary = settings?.provider || DEFAULT_PROVIDER_ID;
+  if (providerById(primary)?.private) return [primary];
+  return [
+    primary,
+    ...PROVIDERS.map((p) => p.id).filter((id) => id !== primary && defaultModelFor(id)),
+  ];
+}
+
+/**
+ * Ask the AI, failing over to the next provider when the current one fails.
+ * @param {string} prompt
+ * @param {string} modelId   the preferred model of the PRIMARY provider
+ * @param {any} settings
+ * @returns {Promise<string>}
+ */
+async function ask(prompt, modelId, settings) {
+  const primary = settings?.provider || DEFAULT_PROVIDER_ID;
+  let lastError = null;
+  for (const providerId of providerChain(settings)) {
+    // The preferred model belongs to the primary provider; a fallback provider
+    // gets its own default model (ids are not interchangeable).
+    const id =
+      providerId === primary ? resolveModel(providerId, modelId) : defaultModelFor(providerId);
+    try {
+      return await askProvider(providerId, prompt, id, settings);
+    } catch (err) {
+      lastError = err;
+      console.warn(`[OQS] provider "${providerId}" failed: ${err?.message ?? err}`);
+    }
+  }
+  throw lastError ?? new Error("No AI provider is available");
+}
+
+/**
+ * Can this provider run a 3-model consensus?
+ *  - The keyless Pollinations endpoint allows 1 request / 30 s per IP, so a
+ *    panel would take minutes: there we use a single pass.
+ *  - On-device AI and local/custom endpoints have no fixed panel: single pass.
+ * @param {string} providerId
+ * @param {any} settings
+ */
+function canVote(providerId, settings) {
+  if (providerId === "pollinations" && !String(settings?.apiKey ?? "").trim()) return false;
+  if (providerId === "ondevice") return false;
+  if (consensusFor(providerId).length < 2) return false;
+  return true;
 }
 
 /**
@@ -80,14 +229,17 @@ function enqueue(task) {
  *
  * @param {{ questionText: string, choices: Array<{id:string,text:string}> }} question
  * @param {string} preferredModelId  preferred first voter (usually the user's pick)
+ * @param {any} settings            provider + API key from the options page
  * @returns {Promise<{ answerIndex: number, confidence: number, reason: string, source: string, verified: boolean } | null>}
  */
-async function solveConsensus(question, preferredModelId) {
+async function solveConsensus(question, preferredModelId, settings) {
   const n = question.choices.length;
   const valid = (p) => p && Number.isInteger(p.answerIndex) && p.answerIndex >= 0 && p.answerIndex < n;
+  const providerId = settings?.provider || DEFAULT_PROVIDER_ID;
 
-  // Build the voter panel: preferred model first, then the rest of the panel.
-  const panel = [preferredModelId || DEFAULT_MODEL_ID, ...CONSENSUS_MODELS].filter(
+  // Build the voter panel: preferred model first, then the rest of THIS
+  // provider's panel (model ids are provider-specific).
+  const panel = [preferredModelId || defaultModelFor(providerId), ...consensusFor(providerId)].filter(
     (id, i, arr) => id && arr.indexOf(id) === i
   );
   const voters = panel.slice(0, 3);
@@ -102,7 +254,7 @@ async function solveConsensus(question, preferredModelId) {
     if (i > 0) await new Promise((r) => setTimeout(r, 700));
     let parsed = null;
     try {
-      parsed = parseSolverReply(await ask(solverPrompt, voters[i]));
+      parsed = parseSolverReply(await ask(solverPrompt, voters[i], settings));
     } catch {
       parsed = null;
     }
@@ -128,7 +280,7 @@ async function solveConsensus(question, preferredModelId) {
     tally.set(p.answerIndex, cur);
   }
 
-  // Majority (2+ of 3, or 2+ of however many returned).
+  // A single valid reply is not a majority; send it through the verifier path.
   let bestIndex = null;
   let bestCount = 0;
   let bestConf = 0;
@@ -142,7 +294,7 @@ async function solveConsensus(question, preferredModelId) {
     }
   }
   const majorityThreshold = Math.floor(picks.length / 2) + 1;
-  if (bestCount >= majorityThreshold) {
+  if (picks.length >= 2 && bestCount >= majorityThreshold) {
     return {
       answerIndex: bestIndex,
       confidence: Math.min(0.99, Math.max(bestConf, bestCount === 3 ? 0.95 : 0.85)),
@@ -156,9 +308,18 @@ async function solveConsensus(question, preferredModelId) {
   const primary = picks.find((p) => p.answerIndex === bestIndex) ?? picks[0];
   let verdict = null;
   try {
-    verdict = parseVerifierReply(await ask(buildVerifierPrompt(question, primary.answerIndex), DEFAULT_MODEL_ID));
+    verdict = parseVerifierReply(await ask(buildVerifierPrompt(question, primary.answerIndex), defaultModelFor(providerId), settings));
   } catch {
     verdict = null;
+  }
+  if (valid(verdict) && verdict.answerIndex === primary.answerIndex) {
+    return {
+      answerIndex: primary.answerIndex,
+      confidence: verdict.confidence || primary.confidence || 0,
+      reason: verdict.reason || primary.reason || "verifier confirmed the leading answer",
+      source: "ai-verified",
+      verified: true,
+    };
   }
   if (valid(verdict) && verdict.answerIndex !== primary.answerIndex) {
     // Accept the verifier's override only if it matches another voter OR is confident.
@@ -194,14 +355,16 @@ async function solveConsensus(question, preferredModelId) {
  * @param {{ questionText: string, choices: Array<{id:string,text:string}> }} question
  * @param {number|null} requiredCount
  * @param {string} preferredModelId
+ * @param {any} settings
  * @returns {Promise<{ answerIndexes: number[], confidence: number, reason: string, source: string, verified: boolean } | null>}
  */
-async function solveConsensusMulti(question, requiredCount, preferredModelId) {
+async function solveConsensusMulti(question, requiredCount, preferredModelId, settings) {
   const n = question.choices.length;
   const valid = (p) =>
     p && Array.isArray(p.answerIndexes) && p.answerIndexes.length > 0 && p.answerIndexes.every((i) => i >= 0 && i < n);
+  const providerId = settings?.provider || DEFAULT_PROVIDER_ID;
 
-  const panel = [preferredModelId || DEFAULT_MODEL_ID, ...CONSENSUS_MODELS].filter(
+  const panel = [preferredModelId || defaultModelFor(providerId), ...consensusFor(providerId)].filter(
     (id, i, arr) => id && arr.indexOf(id) === i
   );
   const voters = panel.slice(0, 3);
@@ -220,7 +383,7 @@ async function solveConsensusMulti(question, requiredCount, preferredModelId) {
     if (i > 0) await new Promise((r) => setTimeout(r, 700));
     let parsed = null;
     try {
-      parsed = parseMultiSolverReply(await ask(solverPrompt, voters[i]));
+      parsed = parseMultiSolverReply(await ask(solverPrompt, voters[i], settings));
     } catch {
       parsed = null;
     }
@@ -261,7 +424,7 @@ async function solveConsensusMulti(question, requiredCount, preferredModelId) {
   let verdict = null;
   try {
     verdict = parseMultiVerifierReply(
-      await ask(buildMultiVerifierPrompt(question, indexes), DEFAULT_MODEL_ID)
+      await ask(buildMultiVerifierPrompt(question, indexes), defaultModelFor(providerId), settings)
     );
   } catch {
     verdict = null;
@@ -315,7 +478,7 @@ async function solveConsensusMulti(question, requiredCount, preferredModelId) {
       const need = requiredCount - finalIndexes.length;
       let fill = null;
       try {
-        fill = parseMultiSolverReply(await ask(buildMultiFillPrompt(question, finalIndexes, need), DEFAULT_MODEL_ID));
+        fill = parseMultiSolverReply(await ask(buildMultiFillPrompt(question, finalIndexes, need), defaultModelFor(providerId), settings));
       } catch {
         fill = null;
       }
@@ -367,7 +530,10 @@ async function solve(req) {
     return { ok: false, error: "AI fallback is disabled and no cached answer exists." };
   }
 
-  const modelId = settings.modelId || DEFAULT_MODEL_ID;
+  const providerId = settings.provider || DEFAULT_PROVIDER_ID;
+  // A model id belongs to one provider; a stale/foreign id falls back to this
+  // provider's default instead of being sent to the backend.
+  const modelId = resolveModel(providerId, settings.modelId);
   const question = { questionText, choices };
 
   if (multiSelect) {
@@ -375,12 +541,12 @@ async function solve(req) {
   }
 
   let result;
-  if (settings.doubleCheck !== false) {
-    result = await solveConsensus(question, modelId);
+  if (settings.doubleCheck !== false && canVote(providerId, settings)) {
+    result = await solveConsensus(question, modelId, settings);
   } else {
     // Single-pass mode (faster, lower accuracy).
     try {
-      const parsed = parseSolverReply(await ask(buildSolverPrompt(question), modelId));
+      const parsed = parseSolverReply(await ask(buildSolverPrompt(question), modelId, settings));
       result = parsed ? { answerIndex: parsed.answerIndex, confidence: parsed.confidence, reason: parsed.reason, source: "ai", verified: false } : null;
     } catch (err) {
       return { ok: false, error: err instanceof Error ? err.message : String(err) };
@@ -417,11 +583,11 @@ async function solveMulti(ctx) {
   const { hash, questionText, choices, question, modelId, settings, requiredCount } = ctx;
 
   let result;
-  if (settings.doubleCheck !== false) {
-    result = await solveConsensusMulti(question, requiredCount, modelId);
+  if (settings.doubleCheck !== false && canVote(settings.provider || DEFAULT_PROVIDER_ID, settings)) {
+    result = await solveConsensusMulti(question, requiredCount, modelId, settings);
   } else {
     try {
-      const parsed = parseMultiSolverReply(await ask(buildMultiSolverPrompt(question, requiredCount), modelId));
+      const parsed = parseMultiSolverReply(await ask(buildMultiSolverPrompt(question, requiredCount), modelId, settings));
       result = parsed
         ? { answerIndexes: parsed.answerIndexes, confidence: parsed.confidence, reason: parsed.reason, source: "ai", verified: false }
         : null;
@@ -459,7 +625,69 @@ async function solveMulti(ctx) {
   return { ok: true, entry };
 }
 
+/**
+ * Probe the configured provider with one tiny request (the options page
+ * "Test provider" button). Runs outside the solve queue so a test is never
+ * blocked by a running solve.
+ * @returns {Promise<{ ok: boolean, provider: string, model: string, reply?: string, error?: string }>}
+ */
+async function testProvider() {
+  const settings = await loadSettings();
+  const providerId = settings.provider || DEFAULT_PROVIDER_ID;
+  const modelId = resolveModel(providerId, settings.modelId);
+  try {
+    // The on-device model is allowed to start its download here (the user
+    // pressed the button); a normal solve never does.
+    const reply =
+      providerId === "ondevice"
+        ? await askOnDevice(
+            'Reply with only this JSON: {"answerIndex":0,"confidence":1,"reason":"ok"}',
+            { allowDownload: true }
+          )
+        : await ask(
+            'Reply with only this JSON: {"answerIndex":0,"confidence":1,"reason":"ok"}',
+            modelId,
+            settings
+          );
+    return { ok: true, provider: providerId, model: modelId, reply: String(reply).slice(0, 120) };
+  } catch (err) {
+    return {
+      ok: false,
+      provider: providerId,
+      model: modelId,
+      error: err instanceof Error ? err.message : String(err),
+    };
+  }
+}
+
+/**
+ * List the models an endpoint offers (options page "Detect models" button).
+ * @param {{ baseUrl?: string, apiKey?: string, provider?: string }} opts
+ */
+async function listModels(opts) {
+  const baseUrl = String(opts?.baseUrl ?? "").trim();
+  // The Gemini web app has no OpenAI-compatible /models endpoint: its model
+  // list comes from its own RPC instead.
+  if (opts?.provider === "geminiweb") return globalThis.OQSGeminiWeb.listModels();
+  if (!baseUrl) throw new Error("No endpoint URL given.");
+  return listOpenAIModels({ baseUrl, apiKey: opts?.apiKey });
+}
+
 chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
+  if (message?.type === "OQS_TEST_PROVIDER") {
+    testProvider()
+      .then((result) => sendResponse(result))
+      .catch((err) => sendResponse({ ok: false, error: err instanceof Error ? err.message : String(err) }));
+    return true; // keep the message channel open for the async response
+  }
+
+  if (message?.type === "OQS_LIST_MODELS") {
+    listModels(message.payload)
+      .then((models) => sendResponse({ ok: true, models }))
+      .catch((err) => sendResponse({ ok: false, error: err instanceof Error ? err.message : String(err) }));
+    return true;
+  }
+
   if (message?.type !== "OQS_SOLVE") return undefined;
 
   enqueue(() => solve(message.payload))

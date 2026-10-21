@@ -29,6 +29,16 @@ const REQUEST_HEADERS = {
 const CREATE_TIMEOUT_MS = 30_000;
 const STREAM_IDLE_TIMEOUT_MS = 60_000;
 
+/** Parse Retry-After delta-seconds or HTTP-date, bounded to 1..60 seconds. */
+function retryAfterDelayMs(value, now = Date.now()) {
+  const raw = String(value ?? "").trim();
+  if (!raw) return 5000;
+  const seconds = Number(raw);
+  const retryAt = Number.isFinite(seconds) ? now + seconds * 1000 : Date.parse(raw);
+  if (!Number.isFinite(retryAt)) return 5000;
+  return Math.min(60_000, Math.max(1000, retryAt - now));
+}
+
 /**
  * Streaming-safe extractor for concatenated top-level `{...}` JSON objects.
  * Handles braces inside strings and objects split across chunks.
@@ -191,9 +201,8 @@ async function createConversation(aiModelId) {
       );
       if (res.status === 429) {
         // Rate limited: honor Retry-After (seconds) before the next attempt.
-        const retryAfter = Number(res.headers?.get?.("retry-after") || "5");
         lastErr = new Error("HTTP 429 rate limited");
-        await new Promise((r) => setTimeout(r, Math.min(60, Math.max(1, retryAfter)) * 1000));
+        await new Promise((r) => setTimeout(r, retryAfterDelayMs(res.headers?.get?.("retry-after"))));
         continue;
       }
       if (!res.ok) {
@@ -248,8 +257,7 @@ async function ask(prompt, aiModelId) {
       STREAM_IDLE_TIMEOUT_MS
     );
     if (res.status === 429) {
-      const retryAfter = Number(res.headers?.get?.("retry-after") || "5");
-      await new Promise((r) => setTimeout(r, Math.min(60, Math.max(1, retryAfter)) * 1000));
+      await new Promise((r) => setTimeout(r, retryAfterDelayMs(res.headers?.get?.("retry-after"))));
       continue;
     }
     if (!res.ok) throw new Error(`HTTP ${res.status} sending message`);
@@ -258,5 +266,5 @@ async function ask(prompt, aiModelId) {
   throw new Error("HTTP 429 rate limited (retries exhausted)");
 }
 
-globalThis.OQSTusk = { ask, __test: { JsonStreamParser, extractStreamText } };
+globalThis.OQSTusk = { ask, __test: { JsonStreamParser, extractStreamText, retryAfterDelayMs } };
 })();

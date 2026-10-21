@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Oracle Quiz Solver",
-  "version": "1.6.0",
+  "version": "1.7.0",
   "description": "Auto-solve Oracle Academy assessment questions using a local answer key plus a free AI fallback (Google Gemini web app, TuskCentral, Pollinations, your own local/on-device model, or your own free key). Suggest + one-click apply.",
   "permissions": ["storage"],
   "host_permissions": [

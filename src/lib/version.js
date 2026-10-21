@@ -11,5 +11,5 @@
  */
 
 (() => {
-  globalThis.OQS_VERSION = "1.6.0";
+  globalThis.OQS_VERSION = "1.7.0";
 })();

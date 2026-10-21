@@ -743,6 +743,54 @@ OUTPUT: ONLY a JSON object, no markdown fences:
     }
   }
 
+  /**
+   * Build a REPAIR prompt for a reply that could not be parsed into an
+   * answer. The model is told exactly which shape was expected and is shown
+   * its own previous reply, so it can correct itself instead of guessing
+   * again from scratch.
+   *
+   * Retrying with the same prompt is useless: a model that answered with
+   * prose will usually answer with prose again. Saying what went wrong is
+   * what makes the second attempt work.
+   *
+   * @param {{ questionText: string, choices: Array<{ id?: string, text: string }> }} question
+   * @param {string} previousReply  the reply that could not be parsed
+   * @param {boolean} multi  true for a select-all question
+   * @returns {string}
+   */
+  function buildRetryPrompt(question, previousReply, multi = false) {
+    const choices = renderChoices(question);
+    const count = (question?.choices ?? []).length;
+    const previous = String(previousReply ?? "").slice(0, 600) || "(the reply was empty)";
+    const shape = multi
+      ? `{"answerIndexes": [<0-based integers, ascending, no duplicates>], "confidence": <0..1>, "reason": "<one sentence>"}`
+      : `{"answerIndex": <0-based integer between 0 and ${Math.max(0, count - 1)}>, "confidence": <0..1>, "reason": "<one sentence>"}`;
+    const indexLine = multi
+      ? `The "answerIndexes" value MUST be an ARRAY of numbers, for example [0,2].`
+      : `The "answerIndex" value MUST be a single number, not an array and not a string.`;
+
+    return `Your previous reply could not be read as an answer, so no choice was selected.
+
+YOUR PREVIOUS REPLY:
+${previous}
+
+Reply again, and this time follow the output format EXACTLY.
+
+${indexLine}
+The "confidence" value must be a number between 0 and 1.
+The "reason" value must be a short string.
+Output the JSON object and NOTHING else: no explanation, no markdown, no code fences.
+
+QUESTION:
+${question?.questionText ?? ""}
+
+CHOICES:
+${choices}
+
+The answer must be ONE of these shapes, exactly:
+${shape}`;
+  }
+
   globalThis.OQSPrompt = {
     PROVIDERS,
     BASE_URL_PRESETS,
@@ -768,5 +816,6 @@ OUTPUT: ONLY a JSON object, no markdown fences:
     buildMultiVerifierPrompt,
     parseMultiVerifierReply,
     buildMultiFillPrompt,
+    buildRetryPrompt,
   };
 })();

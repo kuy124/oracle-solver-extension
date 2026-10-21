@@ -23,6 +23,7 @@ const suites = [
   "human.test.js",          // human mode: difficulty heuristic + deliberate misses
   "providers.test.js",      // provider layer: catalogs, Pollinations client, failover
   "gemini-web.test.js",     // the Gemini WEB client: frame parser, payload, single pass
+  "retry.test.js",          // retry when a reply cannot be parsed into an answer
 ];
 
 let failed = 0;

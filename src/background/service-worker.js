@@ -60,6 +60,7 @@ const {
   buildMultiVerifierPrompt,
   parseMultiVerifierReply,
   buildMultiFillPrompt,
+  buildRetryPrompt,
   PROVIDERS,
   DEFAULT_PROVIDER_ID,
   consensusFor,
@@ -250,14 +251,18 @@ async function solveConsensus(question, preferredModelId, settings) {
   // and we STOP EARLY once two voters agree (a guaranteed majority of 3).
   const votes = new Map(); // answerIndex -> count
   const results = [];
+  const rawReplies = [];
   for (let i = 0; i < voters.length; i += 1) {
     if (i > 0) await new Promise((r) => setTimeout(r, 700));
+    let raw = "";
     let parsed = null;
     try {
-      parsed = parseSolverReply(await ask(solverPrompt, voters[i], settings));
+      raw = await ask(solverPrompt, voters[i], settings);
+      parsed = parseSolverReply(raw);
     } catch {
       parsed = null;
     }
+    rawReplies.push(raw);
     results.push(parsed);
     if (valid(parsed)) {
       votes.set(parsed.answerIndex, (votes.get(parsed.answerIndex) ?? 0) + 1);
@@ -268,7 +273,30 @@ async function solveConsensus(question, preferredModelId, settings) {
 
   const picks = results.filter(valid);
 
-  if (picks.length === 0) return null;
+  if (picks.length === 0) {
+    // Not one voter produced a readable answer. Rather than give up, make ONE
+    // repair attempt, which is enough: the panel would otherwise be a dead
+    // end for the whole question.
+    const lastRaw = rawReplies.find((r) => r && r.trim());
+    if (!lastRaw) return null;
+    console.warn("[OQS] No voter produced a parsable answer; making one repair attempt.");
+    try {
+      const retryRaw = await ask(buildRetryPrompt(question, lastRaw, false), voters[0], settings);
+      const retried = parseSolverReply(retryRaw);
+      if (valid(retried)) {
+        return {
+          answerIndex: retried.answerIndex,
+          confidence: Math.min(0.9, retried.confidence || 0.7),
+          reason: retried.reason || "Recovered after a repair attempt.",
+          source: "ai-retried",
+          verified: false,
+        };
+      }
+    } catch {
+      /* fall through: no answer */
+    }
+    return null;
+  }
 
   // Tally votes.
   const tally = new Map();
@@ -379,14 +407,18 @@ async function solveConsensusMulti(question, requiredCount, preferredModelId, se
   let bestReason = "";
 
   // Sequential with pacing (free endpoint is rate-limited per minute).
+  const rawReplies = [];
   for (let i = 0; i < voters.length; i += 1) {
     if (i > 0) await new Promise((r) => setTimeout(r, 700));
+    let raw = "";
     let parsed = null;
     try {
-      parsed = parseMultiSolverReply(await ask(solverPrompt, voters[i], settings));
+      raw = await ask(solverPrompt, voters[i], settings);
+      parsed = parseMultiSolverReply(raw);
     } catch {
       parsed = null;
     }
+    rawReplies.push(raw);
     if (!valid(parsed)) continue;
     voterCount += 1;
     parsedSets.push(parsed);
@@ -397,7 +429,29 @@ async function solveConsensusMulti(question, requiredCount, preferredModelId, se
     }
   }
 
-  if (voterCount === 0) return null;
+  if (voterCount === 0) {
+    // Not one voter produced a readable SET. Make ONE repair attempt rather
+    // than giving the question up.
+    const lastRaw = rawReplies.find((r) => r && r.trim());
+    if (!lastRaw) return null;
+    console.warn("[OQS] No voter produced a parsable answer set; making one repair attempt.");
+    try {
+      const retryRaw = await ask(buildRetryPrompt(question, lastRaw, true), voters[0], settings);
+      const retried = parseMultiSolverReply(retryRaw);
+      if (valid(retried)) {
+        return {
+          answerIndexes: retried.answerIndexes,
+          confidence: Math.min(0.9, retried.confidence || 0.7),
+          reason: retried.reason || "Recovered after a repair attempt.",
+          source: "ai-retried",
+          verified: false,
+        };
+      }
+    } catch {
+      /* fall through: no answer */
+    }
+    return null;
+  }
 
   // Majority threshold over the voters that actually returned a set. A single
   // surviving voter is NOT a majority of the panel, so we require the count to be
@@ -514,6 +568,61 @@ async function solveConsensusMulti(question, requiredCount, preferredModelId, se
 }
 
 /**
+ * Ask one model and parse the reply, RETRYING when the reply cannot be read
+ * as an answer.
+ *
+ * A model that answers with prose instead of the requested JSON is a common
+ * failure, and repeating the same prompt just produces more prose. The
+ * retry therefore shows the model its own previous reply and spells out the
+ * expected shape, which turns a lost answer into a recovered one.
+ *
+ * @param {{ questionText: string, choices: Array<{id:string,text:string}> }} question
+ * @param {string} modelId
+ * @param {any} settings
+ * @returns {Promise<{ answerIndex: number, confidence: number, reason: string, source: string, verified: boolean } | null>}
+ */
+async function solveSingle(question, modelId, settings) {
+  let raw = "";
+  try {
+    raw = await ask(buildSolverPrompt(question), modelId, settings);
+  } catch (err) {
+    // A transport failure is the provider's problem, not a formatting one:
+    // the failover chain already handles it, so do not retry here.
+    throw err;
+  }
+
+  let parsed = parseSolverReply(raw);
+  if (parsed) {
+    return {
+      answerIndex: parsed.answerIndex,
+      confidence: parsed.confidence,
+      reason: parsed.reason,
+      source: "ai",
+      verified: false,
+    };
+  }
+
+  // The reply could not be parsed: ask again, showing the model its own
+  // reply and the exact shape expected.
+  console.warn("[OQS] The AI reply could not be parsed; retrying with a repair prompt.");
+  let retryRaw = "";
+  try {
+    retryRaw = await ask(buildRetryPrompt(question, raw, false), modelId, settings);
+  } catch {
+    return null;
+  }
+  const retried = parseSolverReply(retryRaw);
+  if (!retried) return null;
+  return {
+    answerIndex: retried.answerIndex,
+    confidence: retried.confidence,
+    reason: retried.reason,
+    source: "ai-retried",
+    verified: false,
+  };
+}
+
+/**
  * @param {SolveRequest} req
  * @returns {Promise<{ ok: boolean, entry?: any, error?: string }>}
  */
@@ -545,12 +654,7 @@ async function solve(req) {
     result = await solveConsensus(question, modelId, settings);
   } else {
     // Single-pass mode (faster, lower accuracy).
-    try {
-      const parsed = parseSolverReply(await ask(buildSolverPrompt(question), modelId, settings));
-      result = parsed ? { answerIndex: parsed.answerIndex, confidence: parsed.confidence, reason: parsed.reason, source: "ai", verified: false } : null;
-    } catch (err) {
-      return { ok: false, error: err instanceof Error ? err.message : String(err) };
-    }
+    result = await solveSingle(question, modelId, settings);
   }
 
   if (!result || result.answerIndex < 0 || result.answerIndex >= choices.length) {
@@ -586,14 +690,20 @@ async function solveMulti(ctx) {
   if (settings.doubleCheck !== false && canVote(settings.provider || DEFAULT_PROVIDER_ID, settings)) {
     result = await solveConsensusMulti(question, requiredCount, modelId, settings);
   } else {
-    try {
-      const parsed = parseMultiSolverReply(await ask(buildMultiSolverPrompt(question, requiredCount), modelId, settings));
-      result = parsed
-        ? { answerIndexes: parsed.answerIndexes, confidence: parsed.confidence, reason: parsed.reason, source: "ai", verified: false }
-        : null;
-    } catch (err) {
-      return { ok: false, error: err instanceof Error ? err.message : String(err) };
+    // Single-pass mode for a select-all question, with the same repair
+    // retry the single-answer path uses.
+    const raw = await ask(buildMultiSolverPrompt(question, requiredCount), modelId, settings);
+    let parsed = parseMultiSolverReply(raw);
+    let source = "ai";
+    if (!parsed) {
+      console.warn("[OQS] The AI reply could not be parsed; retrying with a repair prompt.");
+      const retryRaw = await ask(buildRetryPrompt(question, raw, true), modelId, settings);
+      parsed = parseMultiSolverReply(retryRaw);
+      source = "ai-retried";
     }
+    result = parsed
+      ? { answerIndexes: parsed.answerIndexes, confidence: parsed.confidence, reason: parsed.reason, source, verified: false }
+      : null;
   }
 
   if (!result || !Array.isArray(result.answerIndexes) || result.answerIndexes.length === 0) {

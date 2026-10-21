@@ -22,7 +22,7 @@ function loadClient() {
     "globalThis", "fetch", "TextDecoder", "TextEncoder", "AbortController", "setTimeout", "clearTimeout",
     code
   );
-  fn.call(g, g, () => {}, TextDecoder, TextEncoder, AbortController, setTimeout, clearTimeout);
+  fn.call(g, g, globalThis.fetch.bind(globalThis), TextDecoder, TextEncoder, AbortController, setTimeout, clearTimeout);
   return g.OQSTusk;
 }
 
@@ -64,7 +64,6 @@ function loadPrompt() {
   console.log("\n== Live free-AI solve ==");
   const { buildSolverPrompt, parseSolverReply, DEFAULT_MODEL_ID } = loadPrompt();
   const { ask } = loadClient();
-
   // Reconstruct the sample Q6 exactly (from the captured page).
   const question = {
     questionText:
@@ -81,9 +80,10 @@ function loadPrompt() {
   console.log("  Calling free AI (model GPT-5.4 Nano)…");
   let raw;
   try {
-    raw = await ask(prompt, DEFAULT_MODEL_ID);
+    raw = await ask(prompt, DEFAULT_MODEL_ID.tusk);
   } catch (err) {
     console.log("  AI call error: " + err.message);
+    assert(false, `live AI request succeeded (${err.message})`);
   }
 
   if (raw) {
@@ -91,13 +91,16 @@ function loadPrompt() {
     const parsed = parseSolverReply(raw);
     assert(parsed !== null, "AI reply parsed into a solver result");
     if (parsed) {
-      const chosen = question.choices[parsed.answerIndex];
       console.log(`  -> answerIndex=${parsed.answerIndex} confidence=${parsed.confidence} reason="${parsed.reason}"`);
-      console.log(`  -> chosen id=${chosen.id}`);
       // The pedagogically correct answer is 52443 (index 3): aliases are
       // consistent and it multiplies salary by bonus_pct.
-      assert(parsed.answerIndex >= 0 && parsed.answerIndex < question.choices.length, "answer index in range");
-      assert(chosen.id === "52443", `AI chose the expected answer 52443 (got ${chosen.id})`);
+      const inRange = Number.isInteger(parsed.answerIndex) && parsed.answerIndex >= 0 && parsed.answerIndex < question.choices.length;
+      assert(inRange, "answer index in range");
+      if (inRange) {
+        const chosen = question.choices[parsed.answerIndex];
+        console.log(`  -> chosen id=${chosen.id}`);
+        assert(chosen.id === "52443", `AI chose the expected answer 52443 (got ${chosen.id})`);
+      }
     }
   }
 

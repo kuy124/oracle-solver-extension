@@ -153,6 +153,13 @@ single model, and the answer is then saved so it's never asked again. (The Googl
 Gemini web app answers in a single pass — see
 [Choosing an AI provider](#choosing-an-ai-provider).)
 
+**If the AI answers in the wrong shape, it is asked again.** Sometimes a model
+replies with a sentence instead of the JSON it was asked for, and that reply
+cannot be read as an answer. The extension then shows the model its own reply,
+repeats the question and the choices, and spells out the exact format it
+wants. The question is usually recovered on that second try, instead of being
+lost.
+
 **It adapts to the question.** The solver first works out *what kind of question*
 it is — a real SQL query, a Database Design / theory concept, code in another
 language, or an ordinary multiple-choice item — and applies the right expertise to

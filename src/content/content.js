@@ -65,6 +65,39 @@
     return { seq, count, isLast: count > 0 && seq >= count };
   }
 
+  /**
+   * Stable identity for this assessment. Question ids change as the learner
+   * advances, so use the page-level assessment items instead. Keeping all
+   * available identifiers makes the fingerprint robust across Academy flows.
+   */
+  function readAssessmentFingerprint() {
+    return ["P190_ID", "P190_ASSESSMENT_ID", "P190_ASSESSMENT_STUMEM_ID"]
+      .map((name) => readItem(name))
+      .filter(Boolean)
+      .join("|");
+  }
+
+  /**
+   * Start a fresh persisted autopilot session when the assessment changes.
+   * This also migrates the old unscoped state: it cannot safely belong to the
+   * currently loaded assessment, so begin with a clean session once.
+   */
+  async function ensureAutopilotSession() {
+    const fingerprint = readAssessmentFingerprint();
+    const state = await loadAutopilotState();
+
+    if (fingerprint) {
+      if (state.assessmentFingerprint !== fingerprint) {
+        await resetAutopilotState();
+        await saveAutopilotState({ assessmentFingerprint: fingerprint });
+      }
+      return;
+    }
+
+    // Fallback for an unexpected page that lacks the stable assessment items.
+    if (state.stopped && readProgress().seq <= 1) await resetAutopilotState();
+  }
+
   /** The page's own submit button (fires apex.da.submitPage). */
   function submitButton() {
     return document.querySelector("#quiz-submit");
@@ -269,6 +302,9 @@
   async function autopilotStep(ctx) {
     const { question, answerIds, source, confidence, reason, settings } = ctx;
     const ids = normalizeIds(answerIds);
+    const stepToken = runToken;
+    const isCurrentStep = () =>
+      stepToken === runToken && (!question.questionId || readItem("P190_QUESTION_ID") === question.questionId);
 
     // One action per question, keyed by question id (or hash fallback).
     const qid = question.questionId || currentHash || "";
@@ -288,6 +324,7 @@
     }
 
     const state = await loadAutopilotState();
+    if (!isCurrentStep()) return;
     if (state.stopped) {
       panel.setAutopilotStatus?.("Autopilot stopped.");
       return;
@@ -331,6 +368,7 @@
       const start = Date.now();
       const step = () => {
         loadAutopilotState().then((s) => {
+          if (!isCurrentStep()) return resolve(true);
           if (s.stopped) return resolve(true);
           const left = delay - (Date.now() - start);
           if (left <= 0) return resolve(false);
@@ -344,12 +382,19 @@
       step();
     });
     if (aborted) {
-      panel.setAutopilotStatus?.("Autopilot stopped before submit.");
+      panel.setAutopilotStatus?.(
+        isCurrentStep() ? "Autopilot stopped before submit." : "Autopilot paused: question changed before submit."
+      );
       return;
     }
 
     // Re-check stop right before submitting.
-    if ((await loadAutopilotState()).stopped) {
+    const latestState = await loadAutopilotState();
+    if (!isCurrentStep()) {
+      panel.setAutopilotStatus?.("Autopilot paused: question changed before submit.");
+      return;
+    }
+    if (latestState.stopped) {
       panel.setAutopilotStatus?.("Autopilot stopped before submit.");
       return;
     }
@@ -357,6 +402,10 @@
     if (!isLast) {
       panel.setAutopilotStatus?.(`Autopilot: Q${seq || "?"} submitting \u2192 next\u2026`, { active: true });
       await saveAutopilotState({ count: state.count + 1 });
+      if (!isCurrentStep() || (await loadAutopilotState()).stopped) {
+        panel.setAutopilotStatus?.("Autopilot stopped before submit.");
+        return;
+      }
       const ok = clickSubmit();
       if (!ok) panel.setAutopilotStatus?.("Autopilot stopped: submit button not clickable.");
       return;
@@ -366,6 +415,10 @@
     if (settings.autopilotComplete) {
       panel.setAutopilotStatus?.("Autopilot: completing assessment\u2026", { active: true });
       await saveAutopilotState({ count: state.count + 1 });
+      if (!isCurrentStep() || (await loadAutopilotState()).stopped) {
+        panel.setAutopilotStatus?.("Autopilot stopped before submit.");
+        return;
+      }
       await completeAssessment();
       return;
     }
@@ -440,17 +493,29 @@
 
     const token = ++runToken;
 
+    // Scope the persisted submit count and STOP flag before any early return
+    // (including image-only questions) can leave a new quiz on an old session.
+    await ensureAutopilotSession();
+    if (token !== runToken) return;
+    const settings = await loadSettings();
+    if (token !== runToken) return;
+
     // Image-only questions cannot be text-solved.
     if (!question.questionText && question.hasImage) {
       currentHash = null;
       if (!forceAi) {
-        const s = await loadSettings();
-        if (s.autopilot || s.autoApply) {
+        if (settings.autopilot || settings.autoApply) {
           panel.setAutopilotStatus?.("Paused: image question needs manual input.");
           return;
         }
       }
       panel.showInfo?.("Image question detected - answer manually (AI cannot read the image).");
+      return;
+    }
+
+    if (!forceAi && !settings.autoSuggest && !settings.autoApply && !settings.autopilot) {
+      currentHash = null;
+      panel.showInfo?.("Auto-solve is off. Click Ask AI when you want a suggestion.");
       return;
     }
 
@@ -461,9 +526,6 @@
     const ignored = await loadIgnored();
     if (token !== runToken) return;
     if (!forceAi && ignored.has(hash)) return;
-
-    const settings = await loadSettings();
-    if (token !== runToken) return;
 
     // Reset the per-question autopilot guard as soon as a new question is seen.
     const qid = question.questionId || hash;
@@ -555,6 +617,10 @@
 
   /** Debounced re-scan on DOM changes (APEX re-renders regions via AJAX). */
   function scheduleRun() {
+    // Invalidate in-flight solves as soon as APEX signals a refresh. Waiting for
+    // the debounce would let an old answer render during the 400 ms gap.
+    runToken += 1;
+    panel.showBusy?.("Question changed — checking…");
     if (debounceTimer) clearTimeout(debounceTimer);
     debounceTimer = setTimeout(() => {
       run(false).catch((e) => console.warn("[OQS]", e));
@@ -591,8 +657,17 @@
       (e) => {
         if (!isAssessmentPage()) return;
         const target = e.target;
-        const typing = target instanceof HTMLElement && /input|textarea|select/i.test(target.tagName);
-        if (typing || e.ctrlKey || e.metaKey || e.altKey) return;
+        const typing = /^(INPUT|TEXTAREA|SELECT)$/.test(target?.tagName ?? "") || target?.isContentEditable;
+        if (typing || e.altKey) return;
+
+        if ((e.ctrlKey || e.metaKey) && e.key === "Enter") {
+          if (!target.closest?.("button, a, input, textarea, select, [contenteditable='true']")) {
+            run(true).catch(() => {});
+            e.preventDefault();
+          }
+          return;
+        }
+        if (e.ctrlKey || e.metaKey) return;
 
         if (e.key >= "1" && e.key <= "9") {
           const idx = Number(e.key) - 1;
@@ -601,9 +676,6 @@
             btn.click();
             e.preventDefault();
           }
-        } else if (e.key === "Tab") {
-          run(true).catch(() => {});
-          e.preventDefault();
         }
       },
       true
@@ -612,19 +684,6 @@
 
   async function init() {
     if (!isAssessmentPage()) return;
-
-    // A fresh assessment starts autopilot from a clean slate. Everything here is
-    // best-effort: a storage/wiring failure must never surface as an uncaught
-    // rejection or stop the solver from running.
-    try {
-      const state = await loadAutopilotState();
-      if (state.stopped && readProgress().seq <= 1) {
-        // New assessment detected (back at Q1) — clear the prior stop flag.
-        await resetAutopilotState();
-      }
-    } catch (e) {
-      console.warn("[OQS] autopilot state init failed (continuing):", e);
-    }
 
     try {
       panel.removePanel?.();

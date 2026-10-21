@@ -99,7 +99,11 @@ async function waitUntil(fn, timeout = 3000) {
     page.window.__setItem("P190_QUESTION_SEQUENCE", 1);
     page.window.__setItem("P190_QUESTION_COUNT", 2); // cap = 4
     // Pre-seed the session count at the cap so the next step stops.
-    page.store.autopilotState = { count: 4, stopped: false, lastQuestionId: "" };
+    const fingerprint = ["P190_ID", "P190_ASSESSMENT_ID", "P190_ASSESSMENT_STUMEM_ID"]
+      .map((id) => page.window.document.querySelector(`#${id}`)?.value ?? "")
+      .filter(Boolean)
+      .join("|");
+    page.store.autopilotState = { count: 4, stopped: false, lastQuestionId: "", assessmentFingerprint: fingerprint };
     loadContentScripts(page.window);
     const w = page.window;
     await tick(700);
@@ -142,6 +146,53 @@ async function waitUntil(fn, timeout = 3000) {
     assert(w.__submitPageCalls.length === 0, "no submit in preview mode");
     const auto = w.document.querySelector('[data-role="autopilot-text"]')?.textContent ?? "";
     assert(/preview/i.test(auto), `panel says preview mode (got "${auto}")`);
+  }
+
+  // ---------------------------------------------------------------- Case 8
+  console.log("\n== 8. A different assessment resets the persisted autopilot session ==");
+  {
+    const page = makePage({ settings: { autopilot: true, autopilotDelayMs: 40 } });
+    page.window.__setItem("P190_QUESTION_SEQUENCE", 4);
+    page.window.__setItem("P190_QUESTION_COUNT", 15);
+    page.store.autopilotState = {
+      count: 17,
+      stopped: true,
+      lastQuestionId: "old-question",
+      assessmentFingerprint: "old-assessment|old-attempt",
+    };
+    loadContentScripts(page.window);
+    const w = page.window;
+    const submitted = await waitUntil(() => w.__submitPageCalls.length > 0, 3000);
+    const fingerprint = ["P190_ID", "P190_ASSESSMENT_ID", "P190_ASSESSMENT_STUMEM_ID"]
+      .map((id) => w.document.querySelector(`#${id}`)?.value ?? "")
+      .filter(Boolean)
+      .join("|");
+    assert(submitted, "new assessment was not blocked by the old STOP state");
+    assert(page.store.autopilotState?.count === 1, "old submit count was reset before the new run");
+    assert(page.store.autopilotState?.stopped === false, "old stop flag was cleared");
+    assert(page.store.autopilotState?.assessmentFingerprint === fingerprint, "new assessment identity was persisted");
+  }
+
+  // ---------------------------------------------------------------- Case 9
+  console.log("\n== 9. A question change cancels the pending Autopilot submit ==");
+  {
+    const page = makePage({ settings: { autopilot: true, autopilotDelayMs: 600 } });
+    page.window.__setItem("P190_QUESTION_SEQUENCE", 3);
+    page.window.__setItem("P190_QUESTION_COUNT", 15);
+    loadContentScripts(page.window);
+    const w = page.window;
+    const applied = await waitUntil(
+      () => [...w.document.querySelectorAll("#collapse-Choices-reg .qzlab-choice")].some((i) => i.value === "Y"),
+      1500
+    );
+    assert(applied, "first question answer applied before refresh");
+    await tick(50);
+    w.__setItem("P190_QUESTION_ID", "new-question");
+    w.document.dispatchEvent(new w.Event("apexafterrefresh"));
+    await tick(700);
+    assert(w.__submitPageCalls.length === 0, "old question timer did not submit the refreshed page");
+    const submitted = await waitUntil(() => w.__submitPageCalls.length === 1, 1500);
+    assert(submitted, "new question can proceed through its own Autopilot delay");
   }
 
   console.log("\n" + (failures === 0 ? "ALL TESTS PASSED" : failures + " TEST(S) FAILED"));

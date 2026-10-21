@@ -64,6 +64,30 @@ const fixed = (v) => () => v;
     "adding a complexity keyword raises the score"
   );
 
+  // A hard NON-SQL academic question (Database Design / theory) must also score
+  // higher than a trivial one - difficulty is no longer SQL-only.
+  const easyFact = { questionText: "What is SQL?", choices: [{ id: "a" }, { id: "b" }] };
+  const hardTheory = {
+    questionText:
+      "Which statement about optionality in an entity-relationship model is NOT correct, " +
+      "and how does it differ from cardinality in a relationship? Explain each relationship.",
+    choices: [{ id: "a" }, { id: "b" }, { id: "c" }, { id: "d" }],
+  };
+  assert(
+    difficulty(hardTheory) > difficulty(easyFact),
+    `hard theory question scores higher than a trivial one (${difficulty(hardTheory).toFixed(2)} > ${difficulty(easyFact).toFixed(2)})`
+  );
+  assert(
+    difficulty(hardTheory) > 0.2,
+    `hard theory question is not scored ~0 (got ${difficulty(hardTheory).toFixed(2)})`
+  );
+  // Indonesian concept vocabulary also contributes.
+  const idTheory = { questionText: "Manakah yang benar terkait opsionalitas hubungan antar entitas?", choices: [{ id: "a" }, { id: "b" }, { id: "c" }] };
+  assert(
+    difficulty(idTheory) > difficulty(easyFact),
+    `Indonesian concept question counts as harder than a trivial one (${difficulty(idTheory).toFixed(2)} > ${difficulty(easyFact).toFixed(2)})`
+  );
+
   console.log("\n== pickHumanFailure: disabled / gated ==");
   assert(
     pickHumanFailure(HARD_Q, "a", { humanMode: false, humanFailRate: 1, humanMinDifficulty: 0 }, fixed(0)) === null,

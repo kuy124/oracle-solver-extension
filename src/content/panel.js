@@ -109,7 +109,7 @@ function buildPanel() {
   stopBtn.dataset.role = "stop";
   auto.append(autoText, stopBtn);
 
-  const foot = el("div", "oqs-foot", "Keys: 1\u20134 pick \u00b7 Enter submit \u00b7 Tab solve");
+  const foot = el("div", "oqs-foot", "Keys: 1\u20139 pick \u00b7 Ctrl+Enter solve");
   body.append(status, answer, reason, row, auto, foot);
   root.append(head, body);
 

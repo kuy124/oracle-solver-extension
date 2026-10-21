@@ -67,6 +67,32 @@ const assert = (c, m) => { console.log((c ? "  PASS: " : "  FAIL: ") + m); if (!
   const submit = window.document.querySelector("#quiz-submit");
   assert(!submit.classList.contains("apex_disabled"), "Submit enabled after Apply");
 
+  console.log("\n== Auto-solve setting keeps the panel idle until requested ==");
+  let manualSolveCalls = 0;
+  const manualPage = createPage({
+    store: { settings: { autoSuggest: false, aiEnabled: true } },
+    sendMessage: (_msg, cb) => {
+      manualSolveCalls += 1;
+      cb({ ok: true, entry: { answerId: "52443", source: "ai", confidence: 0.9, reason: "manual test" } });
+    },
+  });
+  loadContentScripts(manualPage.window);
+  await new Promise((r) => setTimeout(r, 200));
+  const manualPanel = manualPage.window.document.getElementById("oqs-panel");
+  assert(manualSolveCalls === 0, "no background solve runs automatically when auto-solve is off");
+  assert(/auto-solve is off/i.test(manualPanel.querySelector('[data-role="status"]').textContent), "panel explains how to request a solve");
+  const tabKey = new manualPage.window.KeyboardEvent("keydown", { key: "Tab", bubbles: true, cancelable: true });
+  manualPage.window.document.body.dispatchEvent(tabKey);
+  assert(!tabKey.defaultPrevented, "ordinary Tab remains available for keyboard navigation");
+  manualPanel.querySelector('[data-role="solve"]').click();
+  await new Promise((r) => setTimeout(r, 150));
+  assert(manualSolveCalls === 1, "Ask AI still solves on demand");
+  assert(manualPanel.querySelector('[data-role="answer"]').textContent.includes("annual_salary * b. bonus_pct"), "on-demand answer is rendered");
+  const solveKey = new manualPage.window.KeyboardEvent("keydown", { key: "Enter", ctrlKey: true, bubbles: true, cancelable: true });
+  manualPage.window.document.body.dispatchEvent(solveKey);
+  await new Promise((r) => setTimeout(r, 150));
+  assert(solveKey.defaultPrevented && manualSolveCalls === 2, "Ctrl+Enter re-solves from the page body");
+
   console.log("\n" + (failures === 0 ? "ALL TESTS PASSED" : failures + " TEST(S) FAILED"));
   process.exit(failures === 0 ? 0 : 1);
 })().catch((e) => { console.error("crash:", e); process.exit(2); });

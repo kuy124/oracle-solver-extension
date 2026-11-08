@@ -7,6 +7,7 @@
  */
 
 (() => {
+  const chrome = globalThis.browser ?? globalThis.chrome;
   const { scrapeQuestion, isAssessmentPage } = globalThis.OQSScraper ?? {};
   const { hashQuestion } = globalThis.OQSHash ?? {};
   const { applyAnswerById, applyAnswersByIds } = globalThis.OQSApply ?? {};

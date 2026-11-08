@@ -11,7 +11,7 @@
 // inconsistently across Chrome versions and fail with "Failed to execute
 // 'importScripts': ... failed to load", the most common way this worker breaks
 // after an update. Absolute paths always resolve from the extension root.
-importScripts(
+if (typeof importScripts === "function") importScripts(
   "/src/lib/version.js",
   "/src/lib/hash.js",
   "/src/lib/prompt.js",
@@ -23,6 +23,8 @@ importScripts(
   "/src/background/gemini-web-client.js",
   "/src/background/ondevice-client.js"
 );
+
+const extensionApi = globalThis.browser ?? globalThis.chrome;
 
 // Fail loudly and clearly if a dependency did not wire up (e.g. a stale unpacked
 // build that is missing a file), instead of a confusing downstream error.
@@ -783,7 +785,7 @@ async function listModels(opts) {
   return listOpenAIModels({ baseUrl, apiKey: opts?.apiKey });
 }
 
-chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
+extensionApi.runtime.onMessage.addListener((message, _sender, sendResponse) => {
   if (message?.type === "OQS_TEST_PROVIDER") {
     testProvider()
       .then((result) => sendResponse(result))

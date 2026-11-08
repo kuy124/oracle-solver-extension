@@ -1,6 +1,6 @@
 # Oracle Quiz Solver
 
-Suggested answers for Oracle Academy quizzes, with one-click selection in Chrome and Edge.
+Suggested answers for Oracle Academy quizzes, with one-click selection in Chrome, Edge, and Firefox on Windows, macOS, and Linux.
 
 ## About
 
@@ -24,6 +24,8 @@ it, click **Apply**, and submit it yourself. Automatic submission is optional.
 
 No build step is needed.
 
+### Chrome / Edge (including Linux)
+
 1. [Download the repository ZIP](https://github.com/kuy124/oracle-solver-extension/archive/HEAD.zip)
    and **extract it**, or clone this repository.
 2. Open `chrome://extensions` in Chrome or `edge://extensions` in Edge.
@@ -33,6 +35,26 @@ No build step is needed.
 5. Open or refresh your Oracle Academy quiz tab.
 
 Keep that folder in place: the browser loads the extension from it.
+
+### Firefox 142+ (including Linux)
+
+1. Download the **oracle-quiz-solver-v1.7.0.zip** asset from the
+   [1.7.0 release](https://github.com/kuy124/oracle-solver-extension/releases/tag/1.7.0)
+   and extract it, or clone this repository.
+2. Open `about:debugging#/runtime/this-firefox`.
+3. Click **Load Temporary Add-on**, then select **`manifest.json`** in the extracted folder.
+4. Open or refresh your Oracle Academy quiz tab.
+
+If Firefox asks for site access, allow it for Oracle Academy and your selected
+AI provider so the extension can read questions and request answers.
+
+**Firefox removes temporary add-ons when it closes.** Repeat steps 2–3 after a
+restart. This release is unsigned; permanent installation in standard Firefox
+requires a Mozilla-signed add-on. Do not disable Firefox's signing protections.
+
+On Linux, use these same steps in your preferred supported browser; there is
+no separate Linux installer. Chrome's on-device AI is browser/hardware-dependent
+and is not available in Firefox; use a hosted provider or a local endpoint instead.
 
 ## Use it
 

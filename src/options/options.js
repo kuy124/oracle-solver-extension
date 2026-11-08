@@ -6,6 +6,7 @@
  */
 
 (() => {
+  const chrome = globalThis.browser ?? globalThis.chrome;
   const { PROVIDERS, BASE_URL_PRESETS, modelsFor, defaultModelFor, resolveModel, providerById } =
     globalThis.OQSPrompt;
   const {

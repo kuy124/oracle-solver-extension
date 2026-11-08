@@ -6,6 +6,7 @@
  */
 
 (() => {
+  const chrome = globalThis.browser ?? globalThis.chrome;
   const KEY_STORE = "answerKey"; // object map: hash -> entry
   const SETTINGS_STORE = "settings";
 

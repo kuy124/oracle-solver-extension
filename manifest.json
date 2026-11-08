@@ -1,5 +1,14 @@
 {
   "manifest_version": 3,
+  "browser_specific_settings": {
+    "gecko": {
+      "id": "oracle-quiz-solver@kuy124.github.io",
+      "strict_min_version": "142.0",
+      "data_collection_permissions": {
+        "required": ["websiteContent"]
+      }
+    }
+  },
   "name": "Oracle Quiz Solver",
   "version": "1.7.0",
   "description": "Auto-solve Oracle Academy assessment questions using a local answer key plus a free AI fallback (Google Gemini web app, TuskCentral, Pollinations, your own local/on-device model, or your own free key). Suggest + one-click apply.",
@@ -21,7 +30,20 @@
     "https://ollama.com/*"
   ],
   "background": {
-    "service_worker": "src/background/service-worker.js"
+    "service_worker": "src/background/service-worker.js",
+    "scripts": [
+      "src/lib/version.js",
+      "src/lib/hash.js",
+      "src/lib/prompt.js",
+      "src/lib/answer-key.js",
+      "src/lib/human.js",
+      "src/background/openai-client.js",
+      "src/background/tusk-client.js",
+      "src/background/pollinations-client.js",
+      "src/background/gemini-web-client.js",
+      "src/background/ondevice-client.js",
+      "src/background/service-worker.js"
+    ]
   },
   "content_scripts": [
     {

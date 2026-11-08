@@ -9,6 +9,7 @@ const { spawnSync } = require("child_process");
 const path = require("path");
 
 const suites = [
+  "firefox.test.js",         // Firefox background page + promise-based browser APIs
   "classic-scripts.test.js", // no ESM anywhere + worker loads via importScripts
   "fixture.test.js",        // scraper/hash/prompt/applier on the real capture
   "page-world.test.js",     // applier drives the PAGE'S OWN toggleChoice via click

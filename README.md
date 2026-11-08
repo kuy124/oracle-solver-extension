@@ -38,12 +38,15 @@ Keep that folder in place: the browser loads the extension from it.
 
 ### Firefox 142+ (including Linux)
 
-1. Download the **oracle-quiz-solver-v1.7.0.zip** asset from the
+1. Download **oracle-quiz-solver-v1.7.0.xpi** from the
    [1.7.0 release](https://github.com/kuy124/oracle-solver-extension/releases/tag/1.7.0)
-   and extract it, or clone this repository.
+   (no extraction needed).
 2. Open `about:debugging#/runtime/this-firefox`.
-3. Click **Load Temporary Add-on**, then select **`manifest.json`** in the extracted folder.
+3. Click **Load Temporary Add-on**, then select the downloaded **`.xpi`** file.
 4. Open or refresh your Oracle Academy quiz tab.
+
+Alternatively, extract the ZIP or clone this repository and select its
+**`manifest.json`** in step 3.
 
 If Firefox asks for site access, allow it for Oracle Academy and your selected
 AI provider so the extension can read questions and request answers.

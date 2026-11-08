@@ -1,365 +1,215 @@
 # Oracle Quiz Solver
 
-**Answers Oracle Academy quizzes for you.** Open a quiz, and a small panel works
-out the answer to each question; click **Apply** and submit. That's the whole idea.
+Suggested answers for Oracle Academy quizzes, with one-click selection in Chrome and Edge.
 
-- Works on single-answer questions **and** "select all that apply" questions.
-- **Handles SQL *and* general questions** — Database Design / theory, other
-  subjects, and quizzes in any language (English, Bahasa Indonesia, and more).
-- Uses your own saved answers first (instant + offline), then free AI.
-- **Nothing is submitted for you** unless you turn on Autopilot.
+## About
 
----
+Oracle Quiz Solver is a browser extension for quizzes on
+[Oracle Academy](https://academy.oracle.com). It checks your saved answers first,
+then asks your selected AI provider when needed. It supports single-answer and
+“select all that apply” questions, including SQL, database theory, and other
+subjects in multiple languages.
 
-## Table of contents
+**By default, you stay in control:** the extension suggests an answer; you review
+it, click **Apply**, and submit it yourself. Automatic submission is optional.
 
-- [Install (2 minutes)](#install-2-minutes)
-- [Use it](#use-it)
-- [The panel: every button explained](#the-panel-every-button-explained)
-- [Questions with more than one answer](#questions-with-more-than-one-answer)
-- [Going hands-off: Autopilot](#going-hands-off-autopilot)
-- [Human mode](#human-mode)
-- [Where answers come from](#where-answers-come-from)
-- [Choosing an AI provider](#choosing-an-ai-provider)
-- [All settings](#all-settings)
-- [Backing up / sharing your answers](#backing-up--sharing-your-answers)
-- [Troubleshooting](#troubleshooting)
-- [Honest limits](#honest-limits)
+> Use this as a study aid and follow your course's rules. AI answers can be wrong;
+> a confidence score is not a guarantee.
 
----
+**Jump to:** [Install](#install) · [Use it](#use-it) ·
+[Settings](#settings) · [AI providers](#ai-providers) ·
+[Backups](#back-up-your-answers) · [Troubleshooting](#troubleshooting)
 
-## Install (2 minutes)
+## Install
 
-1. Open **`chrome://extensions`** in Chrome (or **`edge://extensions`** in Edge).
-2. Turn on **Developer mode** (top-right toggle).
-3. Click **Load unpacked**.
-4. Select the **`oracle-solver-extension`** folder.
-5. Done. The extension is now installed.
+No build step is needed.
 
-> Keep the `oracle-solver-extension` folder where it is — Chrome reads it from
-> that location every time.
+1. [Download the repository ZIP](https://github.com/kuy124/oracle-solver-extension/archive/HEAD.zip)
+   and **extract it**, or clone this repository.
+2. Open `chrome://extensions` in Chrome or `edge://extensions` in Edge.
+3. Turn on **Developer mode**, then click **Load unpacked**.
+4. Select the extracted folder that contains **`manifest.json`**
+   (not the ZIP, `src`, or `tests` folder).
+5. Open or refresh your Oracle Academy quiz tab.
 
----
+Keep that folder in place: the browser loads the extension from it.
 
 ## Use it
 
-1. Open your quiz on **`https://academy.oracle.com`**.
-2. A **Quiz Solver** panel appears in the **top-right** of the page.
-3. The panel shows the suggested answer(s) with a confidence score.
-4. Click **Apply** to select it on the page.
-5. Click the page's own **Submit Answer** — exactly like normal.
+1. Open a quiz on **`https://academy.oracle.com`**.
+2. Find the **Quiz Solver** panel in the top-right corner.
+3. Review the suggested answer and its confidence score.
+4. Click **Apply** to select the suggested choice(s).
+5. Click the quiz page's **Submit Answer** button yourself.
 
-That's it. Repeat for each question.
+For questions with multiple answers, **Apply selects the whole suggested set**.
+You do not need to change any settings. Drag the panel's header to move it.
 
-> **The panel isn't appearing?** Reload the extension in `chrome://extensions`
-> (the ↻ button) and refresh the quiz tab. See [Troubleshooting](#troubleshooting).
-
----
-
-## The panel: every button explained
-
-| Button | What it does |
+| Panel button | What it does |
 |---|---|
-| **Apply** | Selects the suggested answer(s) on the page. You still press Submit yourself. |
-| **Cycle** | Shows the next-best guess, if you disagree with the first. |
-| **Ask AI** | Asks the AI again for a fresh answer to this question. |
-| **Never** | Skips this exact question from now on (useful for trick questions). |
-| **STOP** | Stops Autopilot immediately. |
+| **Apply** | Selects the suggested answer(s), without submitting. |
+| **Cycle** | Shows the next-best single-answer suggestion; unavailable for multi-answer questions. |
+| **Ask AI** | Requests a fresh AI answer. |
+| **Never** | Skips this exact question in future. |
+| **STOP** | Stops Autopilot. |
 
-**Keyboard shortcuts:** press **`1`**–**`9`** to click that choice yourself, or
-**`Ctrl+Enter`** (Windows/Linux) / **`Cmd+Enter`** (Mac) to re-ask the AI.
+**Shortcuts:** `1`–`9` selects a choice; `Ctrl+Enter` (Windows/Linux) or
+`Cmd+Enter` (Mac) asks the AI again.
 
-Turn off **Auto-solve when a question loads** to keep the panel idle until you
-press **Ask AI**. Autopilot and Auto-fill continue solving because they need an
-answer to act on.
+## Settings
 
-You can drag the panel by its header to move it anywhere on the screen.
+Right-click the extension's toolbar icon → **Options**. You can also open
+your browser's extensions page → **Details** → **Extension options**.
+**Changes save automatically.**
 
----
+Start with a preset:
 
-## Questions with more than one answer
-
-Some Oracle questions say **"Select all that apply"** or **"(Pilih dua)"** and
-want **two or more** answers. The extension handles these with no extra work from
-you:
-
-- The panel shows a count, e.g. **`Suggested answer (2 answers) · 90%`**.
-- It highlights **all** correct choices in the page.
-- **Apply** selects **all of them** at once.
-- **Cycle** is greyed out, because there's nothing to cycle through — the whole
-  set is the answer.
-
-You don't have to tell the extension which type a question is — it reads that
-from the page.
-
----
-
-## Going hands-off: Autopilot
-
-**Off by default.** Autopilot does everything for you: solve → select → submit →
-next question.
-
-**Turn it on:** right-click the toolbar icon → **Options** → click the
-**Full auto** preset.
-
-> ⚠️ **Full auto submits every answer for you** and, if enabled, completes the
-> whole assessment. This is **irreversible**. Only use it when you're confident.
-
-Autopilot has safety nets built in:
-
-| Safety net | What it means |
-|---|---|
-| **Minimum confidence** | If the AI isn't sure enough, Autopilot **pauses** instead of guessing. |
-| **Delay before submit** | A few seconds' grace so you can hit **STOP**. |
-| **STOP** | Cancels right away — even across the page reload between questions. |
-| **Loop cap** | Auto-stops after `questions + 2` submits. It can never run away. |
-| **New quiz** | Starts with a fresh Autopilot count and clears a STOP from a previous quiz. |
-| **Preview pages** | Never submits on preview-only pages. |
-| **Image questions** | Pauses automatically (the AI can't read images). |
-| **Last question** | Stops for your review, unless you turned on *Complete on last question*. |
-
----
-
-## Human mode
-
-**Off by default.** Autopilot answering everything 100% perfectly looks suspicious.
-Human mode makes a run look like a real student by **occasionally getting hard
-questions wrong on purpose**.
-
-- It judges each question's difficulty locally — no extra AI calls.
-- Only questions harder than **your threshold** can be missed.
-- **Miss rate** controls how often eligible questions are missed.
-- On single-answer questions it picks a believable wrong choice; on multi-answer
-  questions it drops one of the correct answers.
-- **It only affects Autopilot and Auto-fill.** When *you* press **Apply**, you
-  always get the correct answer.
-- A deliberate miss is **never saved**, so the same question can be answered
-  correctly on your next attempt.
-
-Turn it on in **Options → Human mode**.
-
----
-
-## Where answers come from
-
-Every question is answered in this order:
-
-1. **Your saved answers first** — instant, offline, and free.
-2. **Free AI second** — only for questions you haven't answered before.
-
-With **3-model consensus** on (the default), a new question is answered by **three
-different AI models** and the majority wins. This is much more accurate than any
-single model, and the answer is then saved so it's never asked again. (The Google
-Gemini web app answers in a single pass — see
-[Choosing an AI provider](#choosing-an-ai-provider).)
-
-**If the AI answers in the wrong shape, it is asked again.** Sometimes a model
-replies with a sentence instead of the JSON it was asked for, and that reply
-cannot be read as an answer. The extension then shows the model its own reply,
-repeats the question and the choices, and spells out the exact format it
-wants. The question is usually recovered on that second try, instead of being
-lost.
-
-**It adapts to the question.** The solver first works out *what kind of question*
-it is — a real SQL query, a Database Design / theory concept, code in another
-language, or an ordinary multiple-choice item — and applies the right expertise to
-it. It also understands the question in its own language (e.g. Bahasa Indonesia)
-and reasons in that language. You don't have to configure anything.
-
-**Privacy note:** any question that isn't already saved is sent to the free AI
-service you picked in **Options → AI provider** (by default the public
-`gemini.google.com` web app). Turn **Free AI fallback** **off** in Options to
-keep everything offline and use only your own saved answers.
----
-
-## Choosing an AI provider
-
-The extension can talk to **seven** free AI backends. Pick one in
-**Options → AI provider**. Four of them need **no account and no key at all**.
-
-| Provider | Account / key | What you get |
+| Preset | Selects answers | Submits answers |
 |---|---|---|
-| **Google Gemini web app** | **None** | The real [gemini.google.com](https://gemini.google.com) web app, used the same way a browser uses it. **Gemini Flash** answers a question in about 5–10 seconds, needs no sign-up and no key, and stores no credential in the extension. **Recommended starting point.** |
-| **TuskCentral** | **None** | 8 models (GPT-5.4 Mini, Gemini 3.5 Flash Lite, DeepSeek V3.2, Llama 4 Maverick…). Works immediately after install, but the free endpoint is rate-limited to roughly one request per minute. |
-| **Pollinations** | **A free API key** | A far stronger catalogue: **GPT-5.4, GPT-6.1 Sol, Claude Sonnet 5, Gemini 3.8 Flash, DeepSeek V4, Kimi K3, GLM-5.3, Grok 4.6** — and no per-IP rate cap, so the 3-model vote is fast. |
-| **Ollama** (local) | **None** | Runs on your own machine. Install [Ollama](https://ollama.com), pull a model (`ollama pull qwen3-coder:30b`), and the extension talks to `http://localhost:11434`. Free forever, unlimited, and **the question never leaves your computer**. |
-| **LM Studio** (local) | **None** | Same idea with [LM Studio](https://lmstudio.ai) on `http://localhost:1234`. |
-| **On-device AI** (Chrome) | **None** | Chrome's own built-in model (Gemini Nano) — no server, no account, no network. Needs Chrome 138+ on desktop, **22 GB free disk** and 4 GB VRAM or 16 GB RAM, and the model is downloaded on first use. |
-| **Custom endpoint** | **Your own free key** | Any OpenAI-compatible endpoint. Presets included for **Groq, OpenRouter, Google Gemini, Cerebras, Mistral, NVIDIA NIM, Ollama Cloud** — each has a free tier that *you* sign up for. The extension never ships or spends anybody's key. |
+| **Suggest only** (default) | You click Apply | You submit |
+| **Auto-fill** | Automatically | You submit |
+| **Full auto** | Automatically | Automatically |
 
-### Google Gemini web app (no account, no key)
+> **Full auto submits real answers.** It can also finish the assessment when
+> **Complete on last question** is enabled. Submitted answers cannot be undone
+> by the extension. Review your settings before enabling it.
 
-This is the strongest option that needs **nothing** from you: no sign-up, no API
-key, no card, no configuration. The extension talks to the public
-[gemini.google.com](https://gemini.google.com) web app directly and answers
-with **Gemini Flash**.
+Autopilot pauses for low confidence, image questions, and preview pages. It has
+a submit delay, a loop cap, and a **STOP** button. It stops at the last question
+for review unless **Complete on last question** is enabled.
 
-- **Nothing to set up.** Pick *Google Gemini web app* in Options → AI provider
-  and it works.
-- **No credential is stored.** The extension does not ask for, read or keep your
-  Google cookies or password. It works as a **guest session**, exactly like
-  opening the site in a private window — and Chrome does not even let it: an
-  extension's request carries no cookies for the site it calls, so your Google
-  session is unreachable by construction.
-- **Your questions are not saved** in your Gemini history — every question is
-  sent as a temporary chat that is discarded afterwards.
-- **Speed:** roughly **5–10 seconds** per question.
-- **One answer per question.** The web app exposes one account's models, so
-  there is no 3-model vote here — a second call would just ask the same model
-  again. Turn **3-model consensus** on and the extension still uses its normal
-  behaviour on the other providers.
+<details>
+<summary><strong>More settings</strong></summary>
 
-The protocol was ported from the open-source
-[Gemini-API](https://github.com/HanaokaYuzu/Gemini-API) project (AGPL-3.0),
-which reverse-engineers the same web endpoint.
+| Setting | What to know |
+|---|---|
+| **Free AI fallback** | Turn off to use only saved answers, offline. |
+| **Auto-solve when a question loads** | Turn off to wait for **Ask AI**. Auto-fill and Autopilot still solve when needed. |
+| **3-model consensus** | Uses a majority vote where supported; takes longer than a single answer. Gemini web and keyless Pollinations use a single answer. |
+| **Show AI reasoning** | Shows a short explanation in the panel. |
+| **Minimum confidence** | Autopilot pauses below this score. |
+| **Delay before submit** | Time in milliseconds to review or press STOP. |
+| **Complete on last question** | Allows Autopilot to finish the assessment. |
+| **Human mode** | Off by default. Deliberately misses some hard questions during Auto-fill or Autopilot. |
 
-> **A note on "free".** This talks to a public web service without an official
-> API agreement, so it is rate-limited by Google and could change or stop
-> working at any time. The extension fails over to another provider
-> automatically if it does, and your saved answers keep working regardless.
+Human mode's **miss rate** and **difficulty threshold** control which questions
+can be missed. Manual **Apply** still uses the suggested answer, and deliberate
+misses are not saved to your answer key.
 
-### Local models (no account, no key, no limits)
+Autopilot controls are disabled until Autopilot is on; Human-mode controls are
+disabled until Human mode is on.
 
-The best "free for everyone" answer if you're willing to run one command:
+</details>
 
-```bash
-ollama pull qwen3-coder:30b      # or: ollama pull gpt-oss:20b
-ollama serve                     # keeps running in the background
+## AI providers
+
+Saved answers work offline. For new questions, the default provider is the
+**Google Gemini web app**. Change it in **Options → AI provider**.
+
+| Provider | Setup | Main trade-off |
+|---|---|---|
+| **Google Gemini web app** (default) | No API key or account required by the extension | Uses an unofficial public web endpoint; availability can change. |
+| **TuskCentral** | No account or key | Hosted service with rate limits. |
+| **Pollinations** | Optional free API key | Keyless access is slower; keyed access uses a refillable balance. |
+| **Ollama** | Install and run a local model | Requires your computer's resources. |
+| **LM Studio** | Run its local server and load a model | Requires your computer's resources. |
+| **On-device AI** | A compatible Chrome installation and model download | Hardware and browser requirements apply. |
+| **Custom endpoint** | An OpenAI-compatible endpoint and your own key, if required | Setup and limits depend on the service. |
+
+**Privacy:** unsaved questions and answer choices are sent to the provider you
+use. Hosted providers can fall back to another hosted service on failure.
+Local, on-device, and custom providers do **not** fall back to a hosted provider.
+Turn off **Free AI fallback** if you want saved answers only.
+
+<details>
+<summary><strong>Provider setup and details</strong></summary>
+
+### Google Gemini web app
+
+Select **Google Gemini web app** in Options. It uses a guest, temporary chat and
+does not ask for or store your Google password or cookies. It returns one answer
+per question rather than a three-model vote.
+
+This is not an official Gemini API integration. Google may rate-limit or change
+the endpoint. The protocol was ported from
+[Gemini-API](https://github.com/HanaokaYuzu/Gemini-API) (AGPL-3.0).
+
+### Ollama or LM Studio
+
+For Ollama, install [Ollama](https://ollama.com), then run:
+
+```sh
+ollama pull qwen3-coder:30b
+ollama serve
 ```
 
-Then pick **Ollama** in Options → AI provider, press **Detect models**, and
-choose your model. Nothing is sent to any third party, there is no rate limit,
-and the quality is whatever model you install.
+If Ollama is already running, you do not need to start another server.
+Choose **Ollama** in Options → **Detect models** → select your model.
+The default address is `http://localhost:11434`.
 
-### Getting the free Pollinations key (30 seconds, no credit card)
+For [LM Studio](https://lmstudio.ai), load a model and start its local server,
+then select **LM Studio**. The default address is `http://localhost:1234`.
 
-1. Go to **<https://enter.pollinations.ai/keys>**, sign in, and create a key.
-2. Paste it into **Options → AI provider → API key**.
-3. Press **Test provider** — you should see `OK`.
+Local inference keeps questions on your computer. Answer quality and speed
+depend on the model and your hardware.
 
-The key stays in this browser profile only (Chrome's local extension storage)
-and is sent in a request header, never in a URL. Each free account gets a small
-pollen balance that refills over time; one solved question costs a tiny
-fraction of it.
+### Pollinations
 
-**Without a key** Pollinations still works, but only through its keyless
-endpoint: one model, one request per 30 seconds. The extension therefore drops
-to a single answer (no 3-model vote) on that path — use it if you just want
-something free, or switch to TuskCentral.
+1. Create a free key at <https://enter.pollinations.ai/keys>.
+2. Select **Pollinations** and paste it into **API key**.
+3. Click **Test provider** and look for `OK`.
 
-### If a provider fails
+The key stays in this browser profile's local extension storage and is sent in a
+request header. Free accounts have a balance that refills over time. Without a
+key, the extension uses a rate-limited, single-model endpoint.
 
-The extension **fails over automatically**: if the selected hosted provider
-errors or gets rate-limited, it asks the other one instead, so a broken
-provider never leaves you with no answer.
+### On-device AI and custom endpoints
 
-**Local, on-device and custom providers never fall back to a hosted one** — the
-question must not leave the machine you chose.
+On-device AI requires a supported desktop Chrome version (138+), a model
+download, and suitable hardware. Allow at least **22 GB free disk space**;
+availability also depends on memory and GPU/CPU support.
 
-### Other providers?
+For a custom endpoint, choose a preset or enter its base URL, provide your own
+key if needed, and select a model. Presets include Groq, OpenRouter, Google
+Gemini, Cerebras, Mistral, NVIDIA NIM, and Ollama Cloud. Use **Detect models**
+and **Test provider** to check your setup.
 
-Groq, OpenRouter, Gemini, Cerebras, Mistral and Ollama Cloud all have free
-tiers too. They are all reachable through **Custom endpoint** with your own
-free key, so you never depend on the extension author's account.
+</details>
 
----
+## Back up your answers
 
-## All settings
+Answers are saved in this browser profile's **answer key**.
 
-Open **Options**: right-click the toolbar icon → **Options**, or
-`chrome://extensions` → **Details** → **Extension options**.
-**Every change saves automatically — there is no Save button.**
+- **Options → Export:** copies the key to your clipboard and displays it in a
+  text box. Save that text in a file for backup.
+- **Options → Import:** paste a saved key into the text box to restore it or move
+  it to another browser profile/computer.
+- **Options → Clear:** deletes the saved key after confirmation.
 
-### Presets (one click sets a whole mode)
-
-| Preset | What it does | Best for |
-|---|---|---|
-| **Suggest only** *(default)* | Panel shows the answer; you Apply and Submit. | Safest — you check everything. |
-| **Auto-fill** | Answers are auto-**selected**; you still press Submit. | Faster, but you still confirm each question. |
-| **Full auto** | Auto-select **and** auto-submit everything, then finish. | Hands-off (read the warnings above first). |
-
-### Individual settings
-
-| Setting | What it does |
-|---|---|
-| **Provider** | Which free AI backend to use: Google Gemini web app, TuskCentral, Pollinations, Ollama, LM Studio, On-device AI, or a custom endpoint. |
-| **API key** | Your free key. Only needed by Pollinations and custom endpoints. |
-| **Endpoint** | Preset base URL for a custom endpoint (Groq, OpenRouter, Gemini, Cerebras, Mistral, NVIDIA, Ollama…) or your own. |
-| **Preferred AI model / Model id** | Which model votes first. A list for Gemini/Tusk/Pollinations; a typed id for local and custom endpoints. |
-| **Detect models** | Asks the endpoint which models it has. |
-| **Test provider** | Sends one tiny request to check the provider + key work. |
-| **Free AI fallback** | Off = use only your saved answers (fully offline). |
-| **Auto-solve when a question loads** | Solve automatically, or only when you click Ask AI. |
-| **3-model consensus** | Three models vote; majority wins. More accurate, but slower. |
-| **Show AI reasoning** | Show the AI's short explanation in the panel. |
-| **Autopilot** | Auto-select + auto-submit each question. |
-| **Complete on last question** | Also finish the whole assessment. Irreversible. |
-| **Minimum confidence** | Below this, Autopilot pauses instead of applying. |
-| **Delay before submit** | Grace period (in milliseconds) to hit STOP. |
-| **Human mode** | Deliberately miss some hard questions. |
-| **Miss rate on hard questions** | How often eligible hard questions are missed (0–100%). |
-| **Only miss questions harder than** | Difficulty threshold; easier questions are always correct. |
-
-Settings related to Autopilot are **greyed out until Autopilot is on**, and
-Human-mode settings stay **greyed out until Human mode is on**.
-
----
-
-## Backing up / sharing your answers
-
-Every answer you get is saved to your **answer key**.
-
-- **Options → Export** copies your whole key to the clipboard (and shows it in a
-  box). Keep the file as a backup.
-- **Options → Import** loads a key from the text box — handy for moving to another
-  computer or sharing with a friend.
-- **Options → Clear** deletes everything (asks first).
-
----
+**Export before removing the extension:** uninstalling can delete its local data.
 
 ## Troubleshooting
 
-**The panel doesn't appear / nothing happens.**
-Reload the extension: `chrome://extensions` → click the **↻ Reload** button on the
-extension → then refresh the quiz tab.
+| Problem | Try this |
+|---|---|
+| **Panel is missing** | Confirm the quiz is on `academy.oracle.com`. Reload the extension on your browser's extensions page, then refresh the quiz tab. |
+| **AI fails or is rate-limited** | Open Options → **Test provider**. Check the key, local server, or balance, or choose another provider. Saved answers still work. |
+| **Autopilot pauses** | Read the panel message. Low confidence, an image, a preview page, or the loop cap can stop it. Review and submit manually if needed. |
+| **Wrong suggestion** | Review the choices; try **Cycle** for a single-answer question or **Ask AI** for a fresh answer. Do not rely on confidence alone. |
+| **Old behavior after updating** | Reload the extension, then refresh all quiz tabs. Unpacked extensions do not update automatically. |
 
-**It keeps showing an old answer / an error about `export` or `Status code: 15`.**
-Chrome is running an **old cached copy**. Chrome does not auto-update extensions
-you loaded yourself. To force a clean reload:
+If a reload does not fix a stale build or an error such as `Unexpected token
+'export'` or `Status code: 15`:
 
-1. `chrome://extensions` → **Remove** the extension.
-2. Close **every** `academy.oracle.com` tab.
-3. **Restart Chrome.**
-4. **Load unpacked** again (pick the `oracle-solver-extension` folder).
-5. Reopen the quiz.
+1. **Export your answer key first**, if you can.
+2. Remove the extension and close all Oracle Academy tabs.
+3. Restart the browser and **Load unpacked** from the updated folder.
+4. Import your backup and reopen the quiz.
 
-**Still stuck?** Go to `chrome://serviceworker-internals`, find the extension's
-worker, click **Unregister**, then reload the extension.
+## Limits
 
-**Autopilot stopped by itself.** That's usually a safety net doing its job — check
-the message in the panel (low confidence, preview page, or the loop cap). You can
-also raise **Minimum confidence**, or press **STOP** and take over.
-
----
-
-## Honest limits
-
-- Correctness depends on your saved answers and the AI — **always spot-check**
-  before you rely on it.
-- The hosted free AI services are unofficial and rate-limited; they may change
-  or stop working. Your saved answers always keep working offline.
-- The **Google Gemini web app** provider talks to a public web endpoint without
-  an official API agreement. It needs no key and no account, but Google may
-  rate-limit it or change it. The extension fails over to another provider
-  automatically, and your saved answers keep working regardless.
-- The Pollinations free tier is a **metered pollen balance** that refills over
-  time. Heavy use can exhaust it until it refills; the extension then falls
-  back to TuskCentral.
-- Chrome's on-device AI needs **22 GB of free disk** and a decent GPU/CPU, and
-  downloads its model on first use — it is not available on every machine.
-- Local models are only as good as the model you install, and a weak local
-  model can be less accurate than the hosted ones. Check the confidence score.
-- Your question text is sent to whichever provider you selected. Use a local
-  or on-device provider if that matters, or turn the AI fallback off entirely.
-- This is a study aid. It helps you answer — it doesn't guarantee a grade, and you
-  are responsible for how you use it.
+- AI and saved answers can be wrong. Review suggestions before submitting.
+- Image questions need manual review; the AI cannot read their images.
+- Free hosted services can be rate-limited, change, or stop working.
+- Local and on-device models depend on your hardware and model quality.
+- This tool does not guarantee a grade. You are responsible for how you use it.
